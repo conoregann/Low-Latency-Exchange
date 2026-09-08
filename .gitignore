@@ -1,0 +1,12 @@
+# Build products and generated reports
+/build/
+/out/
+/compile_commands.json
+/benchmark-results/
+/logs/
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/
+
