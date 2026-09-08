@@ -2,18 +2,25 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 
 namespace low_latency_exchange {
 
 SubmitResult OrderBook::submit(const NewOrder& order) {
     if (validate(order).has_value()) {
-        return {.rejection = OrderRejectReason::invalid_order};
+        return {.executions = {},
+                .rejection = OrderRejectReason::invalid_order,
+                .remaining_quantity = std::nullopt};
     }
     if (order.type != OrderType::limit) {
-        return {.rejection = OrderRejectReason::market_orders_not_supported};
+        return {.executions = {},
+                .rejection = OrderRejectReason::market_orders_not_supported,
+                .remaining_quantity = std::nullopt};
     }
     if (seen_order_ids_.contains(order.order_id)) {
-        return {.rejection = OrderRejectReason::duplicate_order_id};
+        return {.executions = {},
+                .rejection = OrderRejectReason::duplicate_order_id,
+                .remaining_quantity = std::nullopt};
     }
 
     seen_order_ids_.insert(order.order_id);
