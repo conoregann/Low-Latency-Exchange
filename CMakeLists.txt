@@ -53,4 +53,12 @@ if(BUILD_TESTING)
     low_latency_exchange_enable_warnings(low_latency_exchange_types_test)
 
     add_test(NAME low_latency_exchange.types COMMAND low_latency_exchange_types_test)
+
+    add_executable(low_latency_exchange_order_command_test
+        tests/order_command_test.cpp
+    )
+    target_link_libraries(low_latency_exchange_order_command_test PRIVATE low_latency_exchange_core)
+    low_latency_exchange_enable_warnings(low_latency_exchange_order_command_test)
+
+    add_test(NAME low_latency_exchange.order_command COMMAND low_latency_exchange_order_command_test)
 endif()
