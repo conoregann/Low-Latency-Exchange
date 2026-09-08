@@ -1,9 +1,9 @@
-#include "pulsebook/version.hpp"
+#include "low_latency_exchange/version.hpp"
 
-namespace pulsebook {
+namespace low_latency_exchange {
 
 std::string_view version() noexcept {
     return "0.1.0";
 }
 
-}  // namespace pulsebook
+}  // namespace low_latency_exchange

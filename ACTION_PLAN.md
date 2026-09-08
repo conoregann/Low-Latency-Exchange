@@ -1,14 +1,14 @@
-# PulseBook: C++ Low-Latency Exchange and Market-Data Platform
+# Low-Latency Exchange: C++ Low-Latency Exchange and Market-Data Platform
 
 ## Project decision
 
-Build **PulseBook**, a production-minded, in-memory limit-order-book exchange simulator in modern C++. It accepts binary order messages, matches orders deterministically, publishes market-data events, records/replays sessions, and reports latency distributions under load.
+Build **Low-Latency Exchange**, a production-minded, in-memory limit-order-book exchange simulator in modern C++. It accepts binary order messages, matches orders deterministically, publishes market-data events, records/replays sessions, and reports latency distributions under load.
 
 This is deliberately more substantial than a concurrent TCP server. The centre of the project is the matching engine and its correctness/performance constraints; networking is a controlled boundary around it. The result demonstrates systems programming, careful data ownership, concurrency design, measurement discipline, and market-microstructure literacy - all directly relevant to Citadel Securities.
 
 ## Why this is the right next project
 
-The current portfolio already proves full-stack delivery, cloud-backed services, distributed data, and introductory C++/Boost.Asio networking. The largest missing signal is performance-sensitive native systems work beyond a request/response server. PulseBook closes that gap through:
+The current portfolio already proves full-stack delivery, cloud-backed services, distributed data, and introductory C++/Boost.Asio networking. The largest missing signal is performance-sensitive native systems work beyond a request/response server. Low-Latency Exchange closes that gap through:
 
 - C++20 ownership, RAII, data layout, integer/fixed-point modelling, and cache-aware structures.
 - Deterministic price-time-priority matching and auditable financial invariants.
@@ -19,7 +19,7 @@ The current portfolio already proves full-stack delivery, cloud-backed services,
 
 ## Scope and boundaries
 
-PulseBook simulates one or more instruments in a single process initially, then exposes a local TCP gateway. It is a research/learning system only: no brokerage integration, real money, investment advice, or claims of exchange-grade compliance.
+Low-Latency Exchange simulates one or more instruments in a single process initially, then exposes a local TCP gateway. It is a research/learning system only: no brokerage integration, real money, investment advice, or claims of exchange-grade compliance.
 
 ### End-state capabilities
 
@@ -50,7 +50,7 @@ Keep the matching core free of sockets, disk I/O, logging, and locks. It must be
 
 ## Proposed repository layout
 
-    include/pulsebook/        public value types and component interfaces
+    include/low_latency_exchange/        public value types and component interfaces
     src/core/                 order book, matching, sequencing, invariants
     src/transport/            binary codec and TCP gateway
     src/feed/                 book-update aggregation and publishing
@@ -163,7 +163,7 @@ Use measured values, not targets invented in advance. The portfolio release shou
 
 Use only metrics the benchmark report proves. A strong replacement for the current C++ server line could read:
 
-**PulseBook - Low-Latency Exchange & Market-Data Platform** | C++20, Boost.Asio, CMake, GoogleTest, Google Benchmark
+**Low-Latency Exchange - Low-Latency Exchange & Market-Data Platform** | C++20, Boost.Asio, CMake, GoogleTest, Google Benchmark
 
 - Engineered a deterministic, price-time-priority limit-order-book matching engine with a versioned binary order protocol, supporting add, cancel, replace, execution, and level-2 market-data events.
 - Designed a single-writer hot path with bounded lock-free SPSC queues, preallocated order storage, and event-log replay; verified correctness using property, differential, fuzz, and sanitizer testing.

@@ -2,8 +2,8 @@
 
 #include <string_view>
 
-namespace pulsebook {
+namespace low_latency_exchange {
 
 [[nodiscard]] std::string_view version() noexcept;
 
-}  // namespace pulsebook
+}  // namespace low_latency_exchange

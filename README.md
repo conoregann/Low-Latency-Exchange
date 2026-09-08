@@ -1,12 +1,12 @@
-# PulseBook
+# Low-Latency Exchange
 
-PulseBook is a C++20 learning project for building a deterministic, in-memory limit-order-book exchange and market-data platform. It is designed to demonstrate correct matching, clear concurrency boundaries, resilient binary protocol handling, replayability, and measurable performance.
+Low-Latency Exchange is a C++20 learning project for building a deterministic, in-memory limit-order-book exchange and market-data platform. It is designed to demonstrate correct matching, clear concurrency boundaries, resilient binary protocol handling, replayability, and measurable performance.
 
 The project is a simulator for engineering practice, not a real trading system or investment product. The intended architecture and delivery plan are in [ACTION_PLAN.md](ACTION_PLAN.md).
 
 ## Repository layout
 
-- `include/pulsebook/` - public C++ headers.
+- `include/low_latency_exchange/` - public C++ headers.
 - `src/` - implementation of the matching and supporting components.
 - `apps/` - local executables, starting with the command-line entry point.
 - `tests/` - automated unit, property, integration, and regression tests.
@@ -26,7 +26,7 @@ ctest --preset debug
 Run the current executable with:
 
 ```sh
-./out/build/debug/pulsebook
+./out/build/debug/low_latency_exchange
 ```
 
 Use `cmake --preset release` and `cmake --build --preset release` for an optimised build.

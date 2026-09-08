@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-The repository starts with one small C++20 library (`pulsebook_core`), a command-line executable, and a smoke test. This is intentionally modest: it establishes a reproducible build/test path before the matching domain is designed.
+The repository starts with one small C++20 library (`low_latency_exchange_core`), a command-line executable, and a smoke test. This is intentionally modest: it establishes a reproducible build/test path before the matching domain is designed.
 
 ## Intended boundaries
 

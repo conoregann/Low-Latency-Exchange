@@ -13,7 +13,7 @@
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "PULSEBOOK_WARNINGS_AS_ERRORS": "ON"
+        "LOW_LATENCY_EXCHANGE_WARNINGS_AS_ERRORS": "ON"
       }
     },
     {
