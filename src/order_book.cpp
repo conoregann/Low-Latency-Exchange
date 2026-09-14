@@ -239,6 +239,53 @@ std::optional<Price> OrderBook::best_ask() const noexcept {
     return asks_.begin()->first;
 }
 
+std::optional<LevelQuote> OrderBook::top_bid() const noexcept {
+    if (bids_.empty()) {
+        return std::nullopt;
+    }
+    const auto& [price, level] = *bids_.begin();
+    return LevelQuote{price, *Quantity::from_units(level.total_units), level.orders.size()};
+}
+
+std::optional<LevelQuote> OrderBook::top_ask() const noexcept {
+    if (asks_.empty()) {
+        return std::nullopt;
+    }
+    const auto& [price, level] = *asks_.begin();
+    return LevelQuote{price, *Quantity::from_units(level.total_units), level.orders.size()};
+}
+
+std::vector<LevelQuote> OrderBook::bid_depth(std::size_t max_depth) const {
+    std::vector<LevelQuote> levels;
+    levels.reserve(std::min(max_depth, bids_.size()));
+    for (const auto& [price, level] : bids_) {
+        if (levels.size() == max_depth) {
+            break;
+        }
+        levels.push_back({price, *Quantity::from_units(level.total_units), level.orders.size()});
+    }
+    return levels;
+}
+
+std::vector<LevelQuote> OrderBook::ask_depth(std::size_t max_depth) const {
+    std::vector<LevelQuote> levels;
+    levels.reserve(std::min(max_depth, asks_.size()));
+    for (const auto& [price, level] : asks_) {
+        if (levels.size() == max_depth) {
+            break;
+        }
+        levels.push_back({price, *Quantity::from_units(level.total_units), level.orders.size()});
+    }
+    return levels;
+}
+
+BookDepth OrderBook::depth(std::size_t max_depth) const {
+    return BookDepth{
+        .bids = bid_depth(max_depth),
+        .asks = ask_depth(max_depth),
+    };
+}
+
 std::size_t OrderBook::resting_order_count() const noexcept {
     return resting_order_count_;
 }

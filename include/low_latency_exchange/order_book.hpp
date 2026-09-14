@@ -65,6 +65,19 @@ struct ReplaceResult {
     }
 };
 
+struct LevelQuote {
+    Price price;
+    Quantity quantity;
+    std::size_t order_count;
+
+    constexpr auto operator<=>(const LevelQuote&) const noexcept = default;
+};
+
+struct BookDepth {
+    std::vector<LevelQuote> bids;
+    std::vector<LevelQuote> asks;
+};
+
 class OrderBook final {
   public:
     [[nodiscard]] SubmitResult submit(const NewOrder& order);
@@ -73,6 +86,11 @@ class OrderBook final {
 
     [[nodiscard]] std::optional<Price> best_bid() const noexcept;
     [[nodiscard]] std::optional<Price> best_ask() const noexcept;
+    [[nodiscard]] std::optional<LevelQuote> top_bid() const noexcept;
+    [[nodiscard]] std::optional<LevelQuote> top_ask() const noexcept;
+    [[nodiscard]] BookDepth depth(std::size_t max_depth = 5) const;
+    [[nodiscard]] std::vector<LevelQuote> bid_depth(std::size_t max_depth = 5) const;
+    [[nodiscard]] std::vector<LevelQuote> ask_depth(std::size_t max_depth = 5) const;
     [[nodiscard]] std::size_t resting_order_count() const noexcept;
 
   private:

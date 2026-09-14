@@ -300,5 +300,76 @@ int main() {
             "rejection reason is order_not_found");
     }
 
+    {
+        // Level-2 Depth & Top of Book Quotes
+        OrderBook book;
+        passed &= test_util::check(!book.top_bid().has_value(), "top bid is empty initially");
+        passed &= test_util::check(!book.top_ask().has_value(), "top ask is empty initially");
+        passed &= test_util::check(book.depth(5).bids.empty() && book.depth(5).asks.empty(),
+                                   "depth is empty initially");
+
+        // Add 3 bid levels: 100 (2 orders, total qty 30), 99 (1 order, qty 15), 98 (1 order, qty 25)
+        const auto b1 = book.submit(limit_order(1, 1, Side::buy, 100, 10));
+        const auto b2 = book.submit(limit_order(2, 2, Side::buy, 100, 20));
+        const auto b3 = book.submit(limit_order(3, 3, Side::buy, 99, 15));
+        const auto b4 = book.submit(limit_order(4, 4, Side::buy, 98, 25));
+        passed &= test_util::check(b1.accepted() && b2.accepted() && b3.accepted() && b4.accepted(),
+                                   "all bids accepted");
+
+        // Add 2 ask levels: 102 (1 order, qty 40), 103 (2 orders, total qty 50)
+        const auto a1 = book.submit(limit_order(5, 5, Side::sell, 102, 40));
+        const auto a2 = book.submit(limit_order(6, 6, Side::sell, 103, 30));
+        const auto a3 = book.submit(limit_order(7, 7, Side::sell, 103, 20));
+        passed &= test_util::check(a1.accepted() && a2.accepted() && a3.accepted(),
+                                   "all asks accepted");
+
+        // Test top_bid and top_ask
+        const auto tb = book.top_bid();
+        passed &= test_util::check(tb.has_value(), "top bid exists");
+        passed &= test_util::check(tb->price == *Price::from_ticks(100) &&
+                                       tb->quantity == *Quantity::from_units(30) &&
+                                       tb->order_count == 2,
+                                   "top bid aggregates price, quantity, and order count");
+
+        const auto ta = book.top_ask();
+        passed &= test_util::check(ta.has_value(), "top ask exists");
+        passed &= test_util::check(ta->price == *Price::from_ticks(102) &&
+                                       ta->quantity == *Quantity::from_units(40) &&
+                                       ta->order_count == 1,
+                                   "top ask aggregates correctly");
+
+        // Test depth with limit
+        const auto depth_2 = book.depth(2);
+        passed &= test_util::check(depth_2.bids.size() == 2, "bids depth limited to 2");
+        passed &= test_util::check(depth_2.bids[0].price == *Price::from_ticks(100) &&
+                                       depth_2.bids[0].quantity == *Quantity::from_units(30),
+                                   "bid level 1 correct");
+        passed &= test_util::check(depth_2.bids[1].price == *Price::from_ticks(99) &&
+                                       depth_2.bids[1].quantity == *Quantity::from_units(15),
+                                   "bid level 2 correct");
+
+        passed &= test_util::check(depth_2.asks.size() == 2, "asks depth has 2 levels");
+        passed &= test_util::check(depth_2.asks[0].price == *Price::from_ticks(102) &&
+                                       depth_2.asks[0].quantity == *Quantity::from_units(40),
+                                   "ask level 1 correct");
+        passed &= test_util::check(depth_2.asks[1].price == *Price::from_ticks(103) &&
+                                       depth_2.asks[1].quantity == *Quantity::from_units(50) &&
+                                       depth_2.asks[1].order_count == 2,
+                                   "ask level 2 aggregates multiple orders");
+
+        // Cancel order 1 at price 100
+        const auto cancel_res = book.cancel({
+            .sequence = *SequenceNumber::from_value(8),
+            .order_id = *OrderId::from_value(1),
+        });
+        passed &= test_util::check(cancel_res.accepted(), "cancel order 1 accepted");
+
+        const auto updated_tb = book.top_bid();
+        passed &= test_util::check(updated_tb->price == *Price::from_ticks(100) &&
+                                       updated_tb->quantity == *Quantity::from_units(20) &&
+                                       updated_tb->order_count == 1,
+                                   "top bid reflects cancellation immediately");
+    }
+
     return passed ? 0 : 1;
 }
