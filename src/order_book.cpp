@@ -290,4 +290,68 @@ std::size_t OrderBook::resting_order_count() const noexcept {
     return resting_order_count_;
 }
 
+bool OrderBook::validate_invariants() const noexcept {
+    if (!bids_.empty() && !asks_.empty()) {
+        if (bids_.begin()->first >= asks_.begin()->first) {
+            return false;
+        }
+    }
+
+    std::size_t total_orders = 0;
+
+    for (const auto& [price, level] : bids_) {
+        if (level.orders.empty() || level.total_units == 0) {
+            return false;
+        }
+        std::uint64_t counted_units = 0;
+        for (const auto& order : level.orders) {
+            counted_units += order.remaining_quantity.units();
+            const auto it = resting_orders_.find(order.order_id);
+            if (it == resting_orders_.end()) {
+                return false;
+            }
+            if (it->second.side != Side::buy || it->second.price != price) {
+                return false;
+            }
+            if (it->second.it->order_id != order.order_id) {
+                return false;
+            }
+        }
+        if (counted_units != level.total_units) {
+            return false;
+        }
+        total_orders += level.orders.size();
+    }
+
+    for (const auto& [price, level] : asks_) {
+        if (level.orders.empty() || level.total_units == 0) {
+            return false;
+        }
+        std::uint64_t counted_units = 0;
+        for (const auto& order : level.orders) {
+            counted_units += order.remaining_quantity.units();
+            const auto it = resting_orders_.find(order.order_id);
+            if (it == resting_orders_.end()) {
+                return false;
+            }
+            if (it->second.side != Side::sell || it->second.price != price) {
+                return false;
+            }
+            if (it->second.it->order_id != order.order_id) {
+                return false;
+            }
+        }
+        if (counted_units != level.total_units) {
+            return false;
+        }
+        total_orders += level.orders.size();
+    }
+
+    if (total_orders != resting_order_count_ || total_orders != resting_orders_.size()) {
+        return false;
+    }
+
+    return true;
+}
+
 }  // namespace low_latency_exchange

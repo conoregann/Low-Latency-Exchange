@@ -369,6 +369,90 @@ int main() {
                                        updated_tb->quantity == *Quantity::from_units(20) &&
                                        updated_tb->order_count == 1,
                                    "top bid reflects cancellation immediately");
+        passed &= test_util::check(book.validate_invariants(), "invariants hold after depth test");
+    }
+
+    {
+        // Comprehensive invariant stress scenario
+        OrderBook book;
+        passed &= test_util::check(book.validate_invariants(), "empty book invariants hold");
+
+        // Submit multiple bids and asks
+        for (std::uint64_t i = 1; i <= 10; ++i) {
+            const auto res_bid = book.submit(limit_order(i, i, Side::buy, 100 - static_cast<std::int64_t>(i), 10 * i));
+            passed &= test_util::check(res_bid.accepted() && book.validate_invariants(),
+                                       "bid submission maintains invariants");
+
+            const auto res_ask = book.submit(limit_order(100 + i, 100 + i, Side::sell, 110 + static_cast<std::int64_t>(i), 15 * i));
+            passed &= test_util::check(res_ask.accepted() && book.validate_invariants(),
+                                       "ask submission maintains invariants");
+        }
+
+        // Replace some orders (in-place quantity reduction)
+        const auto rep1 = book.replace({
+            .sequence = *SequenceNumber::from_value(300),
+            .order_id = *OrderId::from_value(3),
+            .new_quantity = *Quantity::from_units(5),
+            .new_price = *Price::from_ticks(97),
+        });
+        passed &= test_util::check(rep1.accepted() && book.validate_invariants(),
+                                   "quantity reduction maintains invariants");
+
+        // Replace with quantity increase (tail move)
+        const auto rep2 = book.replace({
+            .sequence = *SequenceNumber::from_value(301),
+            .order_id = *OrderId::from_value(4),
+            .new_quantity = *Quantity::from_units(100),
+            .new_price = *Price::from_ticks(96),
+        });
+        passed &= test_util::check(rep2.accepted() && book.validate_invariants(),
+                                   "quantity increase maintains invariants");
+
+        // Replace with crossing price (buy @ 112 for 30 units matches order 101 @ 111 [15 units] and order 102 @ 112 [15 units])
+        const auto rep_cross = book.replace({
+            .sequence = *SequenceNumber::from_value(302),
+            .order_id = *OrderId::from_value(5),
+            .new_quantity = *Quantity::from_units(30),
+            .new_price = *Price::from_ticks(112),
+        });
+        passed &= test_util::check(rep_cross.accepted() && book.validate_invariants(),
+                                   "crossing replace maintains invariants");
+        passed &= test_util::check(rep_cross.executions.size() == 2,
+                                   "crossing replace filled against orders 101 and 102");
+
+        // Order 101 is already filled; cancelling it should be rejected
+        const auto c_101 = book.cancel({
+            .sequence = *SequenceNumber::from_value(401),
+            .order_id = *OrderId::from_value(101),
+        });
+        passed &= test_util::check(!c_101.accepted() &&
+                                       c_101.rejection == low_latency_exchange::CancelRejectReason::order_not_found &&
+                                       book.validate_invariants(),
+                                   "cancelling fully executed order 101 rejected and invariants hold");
+
+        // Order 102 was partially filled (15 units remaining); cancelling it should cancel 15 units
+        const auto c_102 = book.cancel({
+            .sequence = *SequenceNumber::from_value(402),
+            .order_id = *OrderId::from_value(102),
+        });
+        passed &= test_util::check(c_102.accepted() && c_102.cancelled_quantity == *Quantity::from_units(15) &&
+                                       book.validate_invariants(),
+                                   "cancelling partially filled order 102 succeeds and invariants hold");
+
+        // Orders 103 through 105 cancel successfully
+        for (std::uint64_t i = 103; i <= 105; ++i) {
+            const auto c = book.cancel({
+                .sequence = *SequenceNumber::from_value(400 + i),
+                .order_id = *OrderId::from_value(i),
+            });
+            passed &= test_util::check(c.accepted() && book.validate_invariants(),
+                                       "cancellation maintains invariants");
+        }
+
+        // Market order consuming multiple levels
+        const auto mkt = book.submit(market_order(500, 500, Side::buy, 120));
+        passed &= test_util::check(mkt.accepted() && book.validate_invariants(),
+                                   "market order execution maintains invariants");
     }
 
     return passed ? 0 : 1;
