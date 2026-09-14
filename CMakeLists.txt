@@ -86,4 +86,12 @@ if(BUILD_TESTING)
     low_latency_exchange_enable_warnings(low_latency_exchange_differential_test)
 
     add_test(NAME low_latency_exchange.differential COMMAND low_latency_exchange_differential_test)
+
+    add_executable(low_latency_exchange_fuzz_test
+        tests/fuzz_test.cpp
+    )
+    target_link_libraries(low_latency_exchange_fuzz_test PRIVATE low_latency_exchange_core)
+    low_latency_exchange_enable_warnings(low_latency_exchange_fuzz_test)
+
+    add_test(NAME low_latency_exchange.fuzz COMMAND low_latency_exchange_fuzz_test)
 endif()
