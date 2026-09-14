@@ -30,4 +30,9 @@ enum class NewOrderValidationError {
     return std::nullopt;
 }
 
+struct CancelOrder {
+    SequenceNumber sequence;
+    OrderId order_id;
+};
+
 }  // namespace low_latency_exchange

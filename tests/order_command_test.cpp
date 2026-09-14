@@ -44,5 +44,12 @@ int main() {
             NewOrderValidationError::market_order_has_price,
         "market order carrying a price is rejected");
 
+    const low_latency_exchange::CancelOrder cancel{
+        .sequence = *SequenceNumber::from_value(2),
+        .order_id = *OrderId::from_value(10),
+    };
+    passed &= test_util::check(cancel.sequence.value() == 2 && cancel.order_id.value() == 10,
+                               "cancel order fields are preserved");
+
     return passed ? 0 : 1;
 }

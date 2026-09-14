@@ -1,11 +1,12 @@
 #pragma once
 
 #include <cstddef>
-#include <deque>
 #include <functional>
+#include <list>
 #include <map>
 #include <optional>
-#include <set>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "low_latency_exchange/order_command.hpp"
@@ -35,9 +36,24 @@ struct SubmitResult {
     }
 };
 
+enum class CancelRejectReason {
+    order_not_found,
+};
+
+struct CancelResult {
+    OrderId order_id;
+    std::optional<Quantity> cancelled_quantity;
+    std::optional<CancelRejectReason> rejection;
+
+    [[nodiscard]] bool accepted() const noexcept {
+        return !rejection.has_value();
+    }
+};
+
 class OrderBook final {
   public:
     [[nodiscard]] SubmitResult submit(const NewOrder& order);
+    [[nodiscard]] CancelResult cancel(const CancelOrder& command);
 
     [[nodiscard]] std::optional<Price> best_bid() const noexcept;
     [[nodiscard]] std::optional<Price> best_ask() const noexcept;
@@ -50,12 +66,25 @@ class OrderBook final {
         Quantity remaining_quantity;
     };
 
-    using BidLevels = std::map<Price, std::deque<RestingOrder>, std::greater<Price>>;
-    using AskLevels = std::map<Price, std::deque<RestingOrder>, std::less<Price>>;
+    struct PriceLevel {
+        std::uint64_t total_units = 0;
+        std::list<RestingOrder> orders;
+    };
+
+    struct OrderLocation {
+        Side side;
+        Price price;
+        std::list<RestingOrder>::iterator it;
+    };
+
+    using BidLevels = std::map<Price, PriceLevel, std::greater<Price>>;
+    using AskLevels = std::map<Price, PriceLevel, std::less<Price>>;
 
     BidLevels bids_;
     AskLevels asks_;
-    std::set<OrderId> seen_order_ids_;
+    std::unordered_map<OrderId, OrderLocation> resting_orders_;
+    std::unordered_set<OrderId> seen_order_ids_;
+    std::size_t resting_order_count_ = 0;
 };
 
 }  // namespace low_latency_exchange

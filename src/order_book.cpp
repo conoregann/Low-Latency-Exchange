@@ -27,7 +27,7 @@ SubmitResult OrderBook::submit(const NewOrder& order) {
                (order.type == OrderType::market || asks_.begin()->first <= *order.limit_price)) {
             auto level = asks_.begin();
             const Price execution_price = level->first;
-            auto& orders = level->second;
+            auto& orders = level->second.orders;
 
             while (remaining_units > 0 && !orders.empty()) {
                 auto& resting_order = orders.front();
@@ -37,11 +37,14 @@ SubmitResult OrderBook::submit(const NewOrder& order) {
                 result.executions.push_back(
                     {resting_order.order_id, order.order_id, execution_price, executed_quantity});
                 remaining_units -= executed_units;
+                level->second.total_units -= executed_units;
 
                 const std::uint64_t resting_remaining =
                     resting_order.remaining_quantity.units() - executed_units;
                 if (resting_remaining == 0) {
+                    resting_orders_.erase(resting_order.order_id);
                     orders.pop_front();
+                    --resting_order_count_;
                 } else {
                     resting_order.remaining_quantity = *Quantity::from_units(resting_remaining);
                 }
@@ -55,7 +58,7 @@ SubmitResult OrderBook::submit(const NewOrder& order) {
                (order.type == OrderType::market || bids_.begin()->first >= *order.limit_price)) {
             auto level = bids_.begin();
             const Price execution_price = level->first;
-            auto& orders = level->second;
+            auto& orders = level->second.orders;
 
             while (remaining_units > 0 && !orders.empty()) {
                 auto& resting_order = orders.front();
@@ -65,11 +68,14 @@ SubmitResult OrderBook::submit(const NewOrder& order) {
                 result.executions.push_back(
                     {resting_order.order_id, order.order_id, execution_price, executed_quantity});
                 remaining_units -= executed_units;
+                level->second.total_units -= executed_units;
 
                 const std::uint64_t resting_remaining =
                     resting_order.remaining_quantity.units() - executed_units;
                 if (resting_remaining == 0) {
+                    resting_orders_.erase(resting_order.order_id);
                     orders.pop_front();
+                    --resting_order_count_;
                 } else {
                     resting_order.remaining_quantity = *Quantity::from_units(resting_remaining);
                 }
@@ -83,15 +89,65 @@ SubmitResult OrderBook::submit(const NewOrder& order) {
     if (order.type == OrderType::limit && remaining_units > 0) {
         const Quantity remaining_quantity = *Quantity::from_units(remaining_units);
         RestingOrder resting_order{order.order_id, order.sequence, remaining_quantity};
+        const Price price = *order.limit_price;
         if (order.side == Side::buy) {
-            bids_[*order.limit_price].push_back(resting_order);
+            auto& level = bids_[price];
+            level.total_units += remaining_units;
+            level.orders.push_back(resting_order);
+            auto it = std::prev(level.orders.end());
+            resting_orders_.emplace(order.order_id, OrderLocation{Side::buy, price, it});
         } else {
-            asks_[*order.limit_price].push_back(resting_order);
+            auto& level = asks_[price];
+            level.total_units += remaining_units;
+            level.orders.push_back(resting_order);
+            auto it = std::prev(level.orders.end());
+            resting_orders_.emplace(order.order_id, OrderLocation{Side::sell, price, it});
         }
+        ++resting_order_count_;
         result.remaining_quantity = remaining_quantity;
     }
 
     return result;
+}
+
+CancelResult OrderBook::cancel(const CancelOrder& command) {
+    auto it = resting_orders_.find(command.order_id);
+    if (it == resting_orders_.end()) {
+        return {.order_id = command.order_id,
+                .cancelled_quantity = std::nullopt,
+                .rejection = CancelRejectReason::order_not_found};
+    }
+
+    const OrderLocation loc = it->second;
+    const Quantity cancelled_quantity = loc.it->remaining_quantity;
+    const std::uint64_t cancelled_units = cancelled_quantity.units();
+
+    if (loc.side == Side::buy) {
+        auto level_it = bids_.find(loc.price);
+        if (level_it != bids_.end()) {
+            level_it->second.total_units -= cancelled_units;
+            level_it->second.orders.erase(loc.it);
+            if (level_it->second.orders.empty()) {
+                bids_.erase(level_it);
+            }
+        }
+    } else {
+        auto level_it = asks_.find(loc.price);
+        if (level_it != asks_.end()) {
+            level_it->second.total_units -= cancelled_units;
+            level_it->second.orders.erase(loc.it);
+            if (level_it->second.orders.empty()) {
+                asks_.erase(level_it);
+            }
+        }
+    }
+
+    resting_orders_.erase(it);
+    --resting_order_count_;
+
+    return {.order_id = command.order_id,
+            .cancelled_quantity = cancelled_quantity,
+            .rejection = std::nullopt};
 }
 
 std::optional<Price> OrderBook::best_bid() const noexcept {
@@ -109,16 +165,7 @@ std::optional<Price> OrderBook::best_ask() const noexcept {
 }
 
 std::size_t OrderBook::resting_order_count() const noexcept {
-    std::size_t count = 0;
-    for (const auto& [price, orders] : bids_) {
-        static_cast<void>(price);
-        count += orders.size();
-    }
-    for (const auto& [price, orders] : asks_) {
-        static_cast<void>(price);
-        count += orders.size();
-    }
-    return count;
+    return resting_order_count_;
 }
 
 }  // namespace low_latency_exchange

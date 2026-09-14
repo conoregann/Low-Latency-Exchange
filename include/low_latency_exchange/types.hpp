@@ -101,3 +101,35 @@ enum class OrderType : std::uint8_t {
 };
 
 }  // namespace low_latency_exchange
+
+namespace std {
+
+template <>
+struct hash<low_latency_exchange::Price> {
+    std::size_t operator()(const low_latency_exchange::Price& price) const noexcept {
+        return std::hash<std::int64_t>{}(price.ticks());
+    }
+};
+
+template <>
+struct hash<low_latency_exchange::Quantity> {
+    std::size_t operator()(const low_latency_exchange::Quantity& quantity) const noexcept {
+        return std::hash<std::uint64_t>{}(quantity.units());
+    }
+};
+
+template <>
+struct hash<low_latency_exchange::OrderId> {
+    std::size_t operator()(const low_latency_exchange::OrderId& id) const noexcept {
+        return std::hash<std::uint64_t>{}(id.value());
+    }
+};
+
+template <>
+struct hash<low_latency_exchange::SequenceNumber> {
+    std::size_t operator()(const low_latency_exchange::SequenceNumber& seq) const noexcept {
+        return std::hash<std::uint64_t>{}(seq.value());
+    }
+};
+
+}  // namespace std

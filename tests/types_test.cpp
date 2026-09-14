@@ -29,5 +29,15 @@ int main() {
     passed &= test_util::check(!OrderId::from_value(0).has_value(), "zero order id is rejected");
     passed &= test_util::check(!SequenceNumber::from_value(0).has_value(), "zero sequence is rejected");
 
+    // Test hash specializations
+    passed &= test_util::check(std::hash<Price>{}(*price) == std::hash<std::int64_t>{}(12'345),
+                               "price hash matches ticks");
+    passed &= test_util::check(std::hash<Quantity>{}(*quantity) == std::hash<std::uint64_t>{}(500),
+                               "quantity hash matches units");
+    passed &= test_util::check(std::hash<OrderId>{}(*order_id) == std::hash<std::uint64_t>{}(42),
+                               "order id hash matches value");
+    passed &= test_util::check(std::hash<SequenceNumber>{}(*sequence) == std::hash<std::uint64_t>{}(42),
+                               "sequence number hash matches value");
+
     return passed ? 0 : 1;
 }

@@ -144,5 +144,63 @@ int main() {
         passed &= test_util::check(book.resting_order_count() == 0, "book remains empty");
     }
 
+    {
+        OrderBook book;
+        const auto b1 = book.submit(limit_order(1, 1, Side::buy, 100, 10));
+        const auto b2 = book.submit(limit_order(2, 2, Side::buy, 100, 20));
+        const auto b3 = book.submit(limit_order(3, 3, Side::buy, 99, 30));
+        passed &= test_util::check(book.resting_order_count() == 3, "three orders resting");
+
+        // Cancel the middle order at price 100
+        const auto cancel_res = book.cancel({
+            .sequence = *SequenceNumber::from_value(4),
+            .order_id = *OrderId::from_value(2),
+        });
+        passed &= test_util::check(cancel_res.accepted(), "cancel order 2 is accepted");
+        passed &= test_util::check(cancel_res.cancelled_quantity == *Quantity::from_units(20),
+                                   "cancelled quantity matches resting units");
+        passed &= test_util::check(book.resting_order_count() == 2, "resting count reduced to 2");
+        passed &= test_util::check(book.best_bid() == Price::from_ticks(100), "best bid remains 100");
+
+        // Sell against remaining order 1 at 100
+        const auto sell = book.submit(limit_order(5, 5, Side::sell, 100, 15));
+        passed &= test_util::check(sell.executions.size() == 1, "matches only order 1");
+        passed &= test_util::check(sell.executions[0].resting_order_id == *OrderId::from_value(1),
+                                   "order 1 executed");
+        passed &= test_util::check(sell.executions[0].quantity == *Quantity::from_units(10),
+                                   "order 1 full quantity executed");
+        passed &= test_util::check(book.best_bid() == Price::from_ticks(99), "best bid moves to 99");
+    }
+
+    {
+        OrderBook book;
+        const auto s1 = book.submit(limit_order(1, 10, Side::sell, 105, 50));
+        passed &= test_util::check(s1.accepted(), "resting sell accepted");
+
+        // Partial fill of order 10
+        const auto b1 = book.submit(limit_order(2, 11, Side::buy, 105, 20));
+        passed &= test_util::check(b1.executions.size() == 1, "partial fill occurs");
+
+        // Cancel partially filled order
+        const auto cancel_res = book.cancel({
+            .sequence = *SequenceNumber::from_value(3),
+            .order_id = *OrderId::from_value(10),
+        });
+        passed &= test_util::check(cancel_res.accepted(), "cancel partially filled order accepted");
+        passed &= test_util::check(cancel_res.cancelled_quantity == *Quantity::from_units(30),
+                                   "cancelled quantity is residual quantity");
+        passed &= test_util::check(book.resting_order_count() == 0, "no orders resting");
+        passed &= test_util::check(!book.best_ask().has_value(), "ask book is now empty");
+
+        // Cancel already cancelled / nonexistent order
+        const auto cancel_again = book.cancel({
+            .sequence = *SequenceNumber::from_value(4),
+            .order_id = *OrderId::from_value(10),
+        });
+        passed &= test_util::check(!cancel_again.accepted(), "cancel unknown order rejected");
+        passed &= test_util::check(cancel_again.rejection == low_latency_exchange::CancelRejectReason::order_not_found,
+                                   "reject reason is order_not_found");
+    }
+
     return passed ? 0 : 1;
 }
