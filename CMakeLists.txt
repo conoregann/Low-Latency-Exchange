@@ -78,4 +78,12 @@ if(BUILD_TESTING)
     low_latency_exchange_enable_warnings(low_latency_exchange_property_test)
 
     add_test(NAME low_latency_exchange.property COMMAND low_latency_exchange_property_test)
+
+    add_executable(low_latency_exchange_differential_test
+        tests/differential_test.cpp
+    )
+    target_link_libraries(low_latency_exchange_differential_test PRIVATE low_latency_exchange_core)
+    low_latency_exchange_enable_warnings(low_latency_exchange_differential_test)
+
+    add_test(NAME low_latency_exchange.differential COMMAND low_latency_exchange_differential_test)
 endif()
