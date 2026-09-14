@@ -35,4 +35,11 @@ struct CancelOrder {
     OrderId order_id;
 };
 
+struct ReplaceOrder {
+    SequenceNumber sequence;
+    OrderId order_id;
+    Quantity new_quantity;
+    Price new_price;
+};
+
 }  // namespace low_latency_exchange

@@ -50,10 +50,26 @@ struct CancelResult {
     }
 };
 
+enum class ReplaceRejectReason {
+    order_not_found,
+};
+
+struct ReplaceResult {
+    OrderId order_id;
+    std::vector<Execution> executions;
+    std::optional<Quantity> remaining_quantity;
+    std::optional<ReplaceRejectReason> rejection;
+
+    [[nodiscard]] bool accepted() const noexcept {
+        return !rejection.has_value();
+    }
+};
+
 class OrderBook final {
   public:
     [[nodiscard]] SubmitResult submit(const NewOrder& order);
     [[nodiscard]] CancelResult cancel(const CancelOrder& command);
+    [[nodiscard]] ReplaceResult replace(const ReplaceOrder& command);
 
     [[nodiscard]] std::optional<Price> best_bid() const noexcept;
     [[nodiscard]] std::optional<Price> best_ask() const noexcept;
@@ -76,6 +92,21 @@ class OrderBook final {
         Price price;
         std::list<RestingOrder>::iterator it;
     };
+
+    void match_against_book(OrderId incoming_order_id,
+                           Side side,
+                           OrderType type,
+                           std::optional<Price> limit_price,
+                           std::uint64_t& remaining_units,
+                           std::vector<Execution>& executions);
+
+    void insert_resting_order(OrderId order_id,
+                             SequenceNumber sequence,
+                             Side side,
+                             Price price,
+                             Quantity quantity);
+
+    Quantity remove_resting_order(const OrderLocation& loc, OrderId order_id);
 
     using BidLevels = std::map<Price, PriceLevel, std::greater<Price>>;
     using AskLevels = std::map<Price, PriceLevel, std::less<Price>>;

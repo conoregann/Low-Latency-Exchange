@@ -51,5 +51,15 @@ int main() {
     passed &= test_util::check(cancel.sequence.value() == 2 && cancel.order_id.value() == 10,
                                "cancel order fields are preserved");
 
+    const low_latency_exchange::ReplaceOrder replace{
+        .sequence = *SequenceNumber::from_value(3),
+        .order_id = *OrderId::from_value(10),
+        .new_quantity = *Quantity::from_units(50),
+        .new_price = *Price::from_ticks(10'100),
+    };
+    passed &= test_util::check(replace.sequence.value() == 3 && replace.order_id.value() == 10 &&
+                                   replace.new_quantity.units() == 50 && replace.new_price.ticks() == 10'100,
+                               "replace order fields are preserved");
+
     return passed ? 0 : 1;
 }

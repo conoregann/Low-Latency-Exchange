@@ -202,5 +202,103 @@ int main() {
                                    "reject reason is order_not_found");
     }
 
+    {
+        // Replace: quantity reduction retains time priority
+        OrderBook book;
+        const auto b1 = book.submit(limit_order(1, 1, Side::buy, 100, 20));
+        const auto b2 = book.submit(limit_order(2, 2, Side::buy, 100, 10));
+        passed &= test_util::check(b1.accepted() && b2.accepted(), "both buys accepted");
+
+        const auto replace_res = book.replace({
+            .sequence = *SequenceNumber::from_value(3),
+            .order_id = *OrderId::from_value(1),
+            .new_quantity = *Quantity::from_units(10),
+            .new_price = *Price::from_ticks(100),
+        });
+        passed &= test_util::check(replace_res.accepted(), "replace quantity decrease accepted");
+        passed &= test_util::check(replace_res.remaining_quantity == *Quantity::from_units(10),
+                                   "new remaining quantity is 10");
+
+        // Incoming sell for 15 units should consume all 10 of order 1, and 5 of order 2
+        const auto sell = book.submit(limit_order(4, 3, Side::sell, 100, 15));
+        passed &= test_util::check(sell.executions.size() == 2, "matches two orders");
+        passed &= test_util::check(sell.executions[0].resting_order_id == *OrderId::from_value(1),
+                                   "order 1 retained priority ahead of order 2");
+        passed &= test_util::check(sell.executions[0].quantity == *Quantity::from_units(10),
+                                   "order 1 filled for reduced quantity");
+        passed &= test_util::check(sell.executions[1].resting_order_id == *OrderId::from_value(2),
+                                   "order 2 partially filled");
+    }
+
+    {
+        // Replace: quantity increase loses time priority
+        OrderBook book;
+        const auto b1 = book.submit(limit_order(1, 1, Side::buy, 100, 10));
+        const auto b2 = book.submit(limit_order(2, 2, Side::buy, 100, 10));
+        passed &= test_util::check(b1.accepted() && b2.accepted(), "both buys accepted");
+
+        const auto replace_res = book.replace({
+            .sequence = *SequenceNumber::from_value(3),
+            .order_id = *OrderId::from_value(1),
+            .new_quantity = *Quantity::from_units(30),
+            .new_price = *Price::from_ticks(100),
+        });
+        passed &= test_util::check(replace_res.accepted(), "replace quantity increase accepted");
+
+        // Incoming sell for 15 units should now match order 2 first (since order 1 lost priority)
+        const auto sell = book.submit(limit_order(4, 3, Side::sell, 100, 15));
+        passed &= test_util::check(sell.executions.size() == 2, "matches two orders");
+        passed &= test_util::check(sell.executions[0].resting_order_id == *OrderId::from_value(2),
+                                   "order 2 matched first because order 1 lost priority");
+        passed &= test_util::check(sell.executions[0].quantity == *Quantity::from_units(10),
+                                   "order 2 full fill");
+        passed &= test_util::check(sell.executions[1].resting_order_id == *OrderId::from_value(1),
+                                   "order 1 matched second");
+        passed &= test_util::check(sell.executions[1].quantity == *Quantity::from_units(5),
+                                   "order 1 partial fill");
+    }
+
+    {
+        // Replace: price change crossing spread triggers execution
+        OrderBook book;
+        const auto s1 = book.submit(limit_order(1, 10, Side::sell, 102, 10));
+        const auto b1 = book.submit(limit_order(2, 20, Side::buy, 100, 15));
+        passed &= test_util::check(s1.accepted() && b1.accepted(), "both orders accepted");
+
+        // Replace buy order 20 with price 102 (crosses ask at 102)
+        const auto replace_res = book.replace({
+            .sequence = *SequenceNumber::from_value(3),
+            .order_id = *OrderId::from_value(20),
+            .new_quantity = *Quantity::from_units(15),
+            .new_price = *Price::from_ticks(102),
+        });
+        passed &= test_util::check(replace_res.accepted(), "crossing replace accepted");
+        passed &= test_util::check(replace_res.executions.size() == 1, "crossing replace executes immediately");
+        passed &= test_util::check(replace_res.executions[0].price == *Price::from_ticks(102),
+                                   "execution price is resting ask 102");
+        passed &= test_util::check(replace_res.executions[0].quantity == *Quantity::from_units(10),
+                                   "executed against resting sell");
+        passed &= test_util::check(replace_res.remaining_quantity == *Quantity::from_units(5),
+                                   "remainder rests at 102");
+        passed &= test_util::check(book.best_bid() == Price::from_ticks(102), "best bid is now 102");
+        passed &= test_util::check(!book.best_ask().has_value(), "ask book is exhausted");
+        passed &= test_util::check(book.resting_order_count() == 1, "only residual buy rests");
+    }
+
+    {
+        // Replace: unknown order
+        OrderBook book;
+        const auto replace_res = book.replace({
+            .sequence = *SequenceNumber::from_value(1),
+            .order_id = *OrderId::from_value(999),
+            .new_quantity = *Quantity::from_units(10),
+            .new_price = *Price::from_ticks(100),
+        });
+        passed &= test_util::check(!replace_res.accepted(), "replace unknown order rejected");
+        passed &= test_util::check(
+            replace_res.rejection == low_latency_exchange::ReplaceRejectReason::order_not_found,
+            "rejection reason is order_not_found");
+    }
+
     return passed ? 0 : 1;
 }
