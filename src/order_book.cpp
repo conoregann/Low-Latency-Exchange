@@ -12,11 +12,6 @@ SubmitResult OrderBook::submit(const NewOrder& order) {
                 .rejection = OrderRejectReason::invalid_order,
                 .remaining_quantity = std::nullopt};
     }
-    if (order.type != OrderType::limit) {
-        return {.executions = {},
-                .rejection = OrderRejectReason::market_orders_not_supported,
-                .remaining_quantity = std::nullopt};
-    }
     if (seen_order_ids_.contains(order.order_id)) {
         return {.executions = {},
                 .rejection = OrderRejectReason::duplicate_order_id,
@@ -24,12 +19,12 @@ SubmitResult OrderBook::submit(const NewOrder& order) {
     }
 
     seen_order_ids_.insert(order.order_id);
-    const Price limit_price = *order.limit_price;
     std::uint64_t remaining_units = order.quantity.units();
     SubmitResult result;
 
     if (order.side == Side::buy) {
-        while (remaining_units > 0 && !asks_.empty() && asks_.begin()->first <= limit_price) {
+        while (remaining_units > 0 && !asks_.empty() &&
+               (order.type == OrderType::market || asks_.begin()->first <= *order.limit_price)) {
             auto level = asks_.begin();
             const Price execution_price = level->first;
             auto& orders = level->second;
@@ -56,7 +51,8 @@ SubmitResult OrderBook::submit(const NewOrder& order) {
             }
         }
     } else {
-        while (remaining_units > 0 && !bids_.empty() && bids_.begin()->first >= limit_price) {
+        while (remaining_units > 0 && !bids_.empty() &&
+               (order.type == OrderType::market || bids_.begin()->first >= *order.limit_price)) {
             auto level = bids_.begin();
             const Price execution_price = level->first;
             auto& orders = level->second;
@@ -84,13 +80,13 @@ SubmitResult OrderBook::submit(const NewOrder& order) {
         }
     }
 
-    if (remaining_units > 0) {
+    if (order.type == OrderType::limit && remaining_units > 0) {
         const Quantity remaining_quantity = *Quantity::from_units(remaining_units);
         RestingOrder resting_order{order.order_id, order.sequence, remaining_quantity};
         if (order.side == Side::buy) {
-            bids_[limit_price].push_back(resting_order);
+            bids_[*order.limit_price].push_back(resting_order);
         } else {
-            asks_[limit_price].push_back(resting_order);
+            asks_[*order.limit_price].push_back(resting_order);
         }
         result.remaining_quantity = remaining_quantity;
     }

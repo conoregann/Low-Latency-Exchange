@@ -31,6 +31,20 @@ NewOrder limit_order(std::uint64_t sequence,
     };
 }
 
+NewOrder market_order(std::uint64_t sequence,
+                      std::uint64_t order_id,
+                      Side side,
+                      std::uint64_t quantity) {
+    return NewOrder{
+        .sequence = *SequenceNumber::from_value(sequence),
+        .order_id = *OrderId::from_value(order_id),
+        .side = side,
+        .type = OrderType::market,
+        .quantity = *Quantity::from_units(quantity),
+        .limit_price = std::nullopt,
+    };
+}
+
 }  // namespace
 
 int main() {
@@ -78,6 +92,56 @@ int main() {
         passed &= test_util::check(
             duplicate.rejection == OrderRejectReason::duplicate_order_id,
             "duplicate order id is rejected");
+    }
+
+    {
+        OrderBook book;
+        const auto s1 = book.submit(limit_order(1, 1, Side::sell, 100, 10));
+        const auto s2 = book.submit(limit_order(2, 2, Side::sell, 102, 15));
+        passed &= test_util::check(s1.accepted() && s2.accepted(), "resting sells are accepted");
+
+        const auto market_buy = book.submit(market_order(3, 3, Side::buy, 20));
+        passed &= test_util::check(market_buy.accepted(), "market buy is accepted");
+        passed &= test_util::check(market_buy.executions.size() == 2, "market buy fills across multiple levels");
+        passed &= test_util::check(
+            market_buy.executions[0].price == *Price::from_ticks(100) &&
+                market_buy.executions[0].quantity == *Quantity::from_units(10),
+            "first execution consumes best ask");
+        passed &= test_util::check(
+            market_buy.executions[1].price == *Price::from_ticks(102) &&
+                market_buy.executions[1].quantity == *Quantity::from_units(10),
+            "second execution partially fills next level");
+        passed &= test_util::check(!market_buy.remaining_quantity.has_value(), "market buy does not rest remainder");
+        passed &= test_util::check(book.best_ask() == Price::from_ticks(102), "residual ask remains at 102");
+        passed &= test_util::check(book.resting_order_count() == 1, "one resting order remains in book");
+    }
+
+    {
+        OrderBook book;
+        const auto s1 = book.submit(limit_order(1, 1, Side::sell, 100, 10));
+        passed &= test_util::check(s1.accepted(), "resting sell is accepted");
+
+        // Market buy for 25 units when only 10 are available
+        const auto partial_market_buy = book.submit(market_order(2, 2, Side::buy, 25));
+        passed &= test_util::check(partial_market_buy.accepted(), "insufficient contra liquidity market order accepted");
+        passed &= test_util::check(partial_market_buy.executions.size() == 1, "fills available liquidity");
+        passed &= test_util::check(partial_market_buy.executions[0].quantity == *Quantity::from_units(10),
+                                   "consumes entire book");
+        passed &= test_util::check(!partial_market_buy.remaining_quantity.has_value(),
+                                   "unfilled market order remainder is not rested");
+        passed &= test_util::check(!book.best_ask().has_value(), "ask book is exhausted");
+        passed &= test_util::check(!book.best_bid().has_value(), "no bid is posted from market order");
+        passed &= test_util::check(book.resting_order_count() == 0, "book is empty");
+    }
+
+    {
+        OrderBook book;
+        // Market order against empty book
+        const auto empty_market = book.submit(market_order(1, 1, Side::sell, 50));
+        passed &= test_util::check(empty_market.accepted(), "market order on empty book is accepted");
+        passed &= test_util::check(empty_market.executions.empty(), "no executions on empty book");
+        passed &= test_util::check(!empty_market.remaining_quantity.has_value(), "no remainder rested");
+        passed &= test_util::check(book.resting_order_count() == 0, "book remains empty");
     }
 
     return passed ? 0 : 1;
