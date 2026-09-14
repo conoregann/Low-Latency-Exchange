@@ -60,6 +60,32 @@ load generator / replay client
 - **Transport & Gateway**: Encapsulates Boost.Asio networking and binary codec at the edges.
 - **Inter-thread Boundary**: Single-Producer Single-Consumer (SPSC) lock-free bounded rings decouple networking and market data fan-out from the matching engine.
 
-## Next Steps (Phases 2 & 3)
-- Phase 2: Property-based testing over random command streams, differential testing against a simplified reference book, and fuzzing.
-- Phase 3: Binary protocol framing, length-checked encoding/decoding, and local TCP gateway.
+## Phase 2: Property, Differential, and Fuzz Testing Architecture
+
+The matching core is validated by a multi-layered testing harness guaranteeing correctness, invariant preservation, and resistance to adversarial inputs:
+
+### 1. Reference Order Book Oracle (`tests/reference_order_book.hpp`)
+An independent, deliberately naive implementation of a limit order book. Instead of intrusive pointer indexes, it represents resting liquidity in flat sequences, sorting orders directly by the fundamental definitions of price priority and timestamp sequencing.
+
+### 2. Differential Testing (`tests/differential_test.cpp`)
+Drives identical randomized order flows concurrently into both `OrderBook` and `ReferenceOrderBook`, asserting 100% equivalence on:
+- Execution prices, quantities, and counterparty order IDs.
+- Order submission, cancellation, and cancel-replace status and residual volumes.
+- Best bid/ask quotes and top-of-book levels.
+- Full Level-2 aggregated depth snapshots.
+
+### 3. Property-Based Testing & Volume Conservation (`tests/property_test.cpp`)
+Simulates heavy order book churn across tens of thousands of operations, validating double-auction conservation on every single state transition:
+$$\text{Submitted Units} = \text{Executed Units} + \text{Cancelled Units} + \text{Resting Units}$$
+Concurrently asserts strict spread non-crossing ($\text{best\_bid} < \text{best\_ask}$) and resting order count invariants.
+
+### 4. Hostile Input & Boundary Fuzzing (`tests/fuzz_test.cpp`)
+Validates engine robustness against:
+- Extremal numeric boundary limits (`Price(1)`, $\text{Price}(\text{INT64\_MAX})$, $\text{Quantity}(1)$, huge volume requests).
+- Invalid command payload handling (missing prices, unsolicited prices, non-existent order cancellations).
+- Deep single-price queue churn (1,000 orders in a single price level, arbitrary middle-of-queue node erasures).
+- Multi-level aggressive liquidity sweeps across dozens of contiguous price levels.
+
+## Next Steps (Phases 3 & 4)
+- **Phase 3**: Binary wire protocol framing, length-checked packet encode/decode routines, and local Boost.Asio TCP gateway.
+- **Phase 4**: Market-data publisher pipeline with bounded lock-free SPSC queues and Level-2 snapshot recovery.
