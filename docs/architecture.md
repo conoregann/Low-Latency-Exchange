@@ -86,6 +86,16 @@ Validates engine robustness against:
 - Deep single-price queue churn (1,000 orders in a single price level, arbitrary middle-of-queue node erasures).
 - Multi-level aggressive liquidity sweeps across dozens of contiguous price levels.
 
-## Next Steps (Phases 3 & 4)
-- **Phase 3**: Binary wire protocol framing, length-checked packet encode/decode routines, and local Boost.Asio TCP gateway.
+## Phase 3: Binary Protocol and Local Gateway
+
+Phase 3 starts with a frozen v1 wire contract so framing, versioning, and error codes are independent of sockets.
+
+### 1. Protocol contract (`docs/protocol.md`, `protocol.hpp`)
+- 8-byte little-endian header: magic `0x584C`, version, message type, flags, payload length.
+- Fixed-size inbound commands (`new_order`, `cancel_order`, `replace_order`) and outbound events (acks, rejects, executions, protocol errors).
+- Bounded payload length (1024) and reserved-bit rejection so hostile length claims cannot allocate.
+- Header encode/decode is bounds-checked; payload codecs and the TCP gateway remain subsequent components.
+
+## Next Steps
+- **Phase 3 remaining**: bounds-checked payload encode/decode, then a local Boost.Asio TCP gateway with ordered enqueue and explicit overload policy.
 - **Phase 4**: Market-data publisher pipeline with bounded lock-free SPSC queues and Level-2 snapshot recovery.

@@ -21,6 +21,7 @@ endfunction()
 add_library(low_latency_exchange_core STATIC
     src/version.cpp
     src/order_book.cpp
+    src/protocol.cpp
 )
 
 target_compile_features(low_latency_exchange_core PUBLIC cxx_std_20)
@@ -94,4 +95,12 @@ if(BUILD_TESTING)
     low_latency_exchange_enable_warnings(low_latency_exchange_fuzz_test)
 
     add_test(NAME low_latency_exchange.fuzz COMMAND low_latency_exchange_fuzz_test)
+
+    add_executable(low_latency_exchange_protocol_test
+        tests/protocol_test.cpp
+    )
+    target_link_libraries(low_latency_exchange_protocol_test PRIVATE low_latency_exchange_core)
+    low_latency_exchange_enable_warnings(low_latency_exchange_protocol_test)
+
+    add_test(NAME low_latency_exchange.protocol COMMAND low_latency_exchange_protocol_test)
 endif()
