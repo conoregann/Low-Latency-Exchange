@@ -13,7 +13,8 @@
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "LOW_LATENCY_EXCHANGE_WARNINGS_AS_ERRORS": "ON"
+        "LOW_LATENCY_EXCHANGE_WARNINGS_AS_ERRORS": "ON",
+        "CMAKE_OSX_SYSROOT": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
       }
     },
     {

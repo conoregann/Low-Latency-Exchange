@@ -5,6 +5,10 @@
 #include <optional>
 #include <span>
 
+#include "low_latency_exchange/order_book.hpp"
+#include "low_latency_exchange/order_command.hpp"
+#include "low_latency_exchange/types.hpp"
+
 namespace low_latency_exchange::protocol {
 
 inline constexpr std::uint16_t kMagic = 0x584C;
@@ -148,5 +152,89 @@ inline constexpr std::size_t kProtocolErrorReservedSize = 5;
 [[nodiscard]] bool encode_header(const WireHeader& header, std::span<std::byte> out) noexcept;
 
 [[nodiscard]] std::optional<WireHeader> decode_header(std::span<const std::byte> in) noexcept;
+
+// Event structures for wire payloads
+struct OrderAcceptedEvent {
+    SequenceNumber sequence;
+    OrderId order_id;
+    std::uint64_t remaining_quantity = 0;
+};
+
+struct OrderRejectedEvent {
+    SequenceNumber sequence;
+    OrderId order_id;
+    ErrorCode error_code;
+};
+
+struct ExecutionEvent {
+    SequenceNumber sequence;
+    OrderId resting_order_id;
+    OrderId incoming_order_id;
+    Price price;
+    Quantity quantity;
+};
+
+struct CancelAcceptedEvent {
+    SequenceNumber sequence;
+    OrderId order_id;
+    Quantity cancelled_quantity;
+};
+
+struct ProtocolErrorEvent {
+    ErrorCode error_code;
+    std::uint8_t offending_type = 0;
+};
+
+// Error code mapping helpers
+[[nodiscard]] constexpr ErrorCode to_error_code(OrderRejectReason reason) noexcept {
+    switch (reason) {
+        case OrderRejectReason::invalid_order:
+            return ErrorCode::invalid_order;
+        case OrderRejectReason::market_orders_not_supported:
+            return ErrorCode::invalid_order;
+        case OrderRejectReason::duplicate_order_id:
+            return ErrorCode::duplicate_order_id;
+    }
+    return ErrorCode::invalid_order;
+}
+
+[[nodiscard]] constexpr ErrorCode to_error_code(CancelRejectReason) noexcept {
+    return ErrorCode::order_not_found;
+}
+
+[[nodiscard]] constexpr ErrorCode to_error_code(ReplaceRejectReason) noexcept {
+    return ErrorCode::order_not_found;
+}
+
+// Inbound command codecs
+[[nodiscard]] std::optional<ErrorCode> decode_new_order(std::span<const std::byte> in, NewOrder& out) noexcept;
+[[nodiscard]] std::optional<ErrorCode> decode_cancel_order(std::span<const std::byte> in, CancelOrder& out) noexcept;
+[[nodiscard]] std::optional<ErrorCode> decode_replace_order(std::span<const std::byte> in, ReplaceOrder& out) noexcept;
+
+[[nodiscard]] bool encode_new_order(const NewOrder& order, std::span<std::byte> out) noexcept;
+[[nodiscard]] bool encode_cancel_order(const CancelOrder& order, std::span<std::byte> out) noexcept;
+[[nodiscard]] bool encode_replace_order(const ReplaceOrder& order, std::span<std::byte> out) noexcept;
+
+// Outbound event codecs
+[[nodiscard]] bool encode_order_accepted(const OrderAcceptedEvent& event, std::span<std::byte> out) noexcept;
+[[nodiscard]] std::optional<ErrorCode> decode_order_accepted(std::span<const std::byte> in, OrderAcceptedEvent& out) noexcept;
+
+[[nodiscard]] bool encode_order_rejected(const OrderRejectedEvent& event, std::span<std::byte> out) noexcept;
+[[nodiscard]] std::optional<ErrorCode> decode_order_rejected(std::span<const std::byte> in, OrderRejectedEvent& out) noexcept;
+
+[[nodiscard]] bool encode_execution(const ExecutionEvent& event, std::span<std::byte> out) noexcept;
+[[nodiscard]] std::optional<ErrorCode> decode_execution(std::span<const std::byte> in, ExecutionEvent& out) noexcept;
+
+[[nodiscard]] bool encode_cancel_accepted(const CancelAcceptedEvent& event, std::span<std::byte> out) noexcept;
+[[nodiscard]] std::optional<ErrorCode> decode_cancel_accepted(std::span<const std::byte> in, CancelAcceptedEvent& out) noexcept;
+
+[[nodiscard]] bool encode_protocol_error(const ProtocolErrorEvent& event, std::span<std::byte> out) noexcept;
+[[nodiscard]] std::optional<ErrorCode> decode_protocol_error(std::span<const std::byte> in, ProtocolErrorEvent& out) noexcept;
+
+// Full frame encoder helper (writes 8-byte header + payload)
+[[nodiscard]] bool encode_frame(MessageType type,
+                                std::span<const std::byte> payload,
+                                std::span<std::byte> out,
+                                std::uint16_t flags = 0) noexcept;
 
 }  // namespace low_latency_exchange::protocol
