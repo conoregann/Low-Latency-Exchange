@@ -103,4 +103,13 @@ if(BUILD_TESTING)
     low_latency_exchange_enable_warnings(low_latency_exchange_protocol_test)
 
     add_test(NAME low_latency_exchange.protocol COMMAND low_latency_exchange_protocol_test)
+
+    add_executable(low_latency_exchange_spsc_queue_test
+        tests/spsc_queue_test.cpp
+    )
+    target_link_libraries(low_latency_exchange_spsc_queue_test PRIVATE low_latency_exchange_core)
+    low_latency_exchange_enable_warnings(low_latency_exchange_spsc_queue_test)
+
+    add_test(NAME low_latency_exchange.spsc_queue COMMAND low_latency_exchange_spsc_queue_test)
 endif()
+
