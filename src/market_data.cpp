@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 #include <span>
+#include <utility>
 
 namespace low_latency_exchange {
 
