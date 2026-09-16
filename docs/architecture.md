@@ -102,7 +102,10 @@ Phase 3 starts with a frozen v1 wire contract so framing, versioning, and error 
 - Per-session sequences must increase strictly; queue overload and protocol errors produce an error frame and close the session after the frame is flushed.
 - The gateway drains outbound events on its io_context thread, preserving socket write ordering while keeping socket I/O out of the matching core.
 
-## Next Steps
-- **Phase 3 remaining**: broaden scripted TCP coverage for cancel/replace flows and overload behavior, then document the executable gateway workflow.
+### 3. Gateway verification and local operation
+- Scripted TCP integration coverage exercises new orders, acknowledgements, executions, cancellation, retained and lost replace priority, spread-crossing replacements, malformed frames, oversized lengths, sequence violations, and inbound-queue overload disconnects.
+- The `low_latency_exchange --gateway [port]` executable starts the local server (default port `9000`) and runs the matching service as the queue consumer.
+- The `sanitize` CMake preset and the CI `sanitize-gateway` job run the gateway suite under AddressSanitizer and UndefinedBehaviorSanitizer.
 
+## Next Steps
 - **Phase 4**: Market-data publisher pipeline with bounded lock-free SPSC queues and Level-2 snapshot recovery.

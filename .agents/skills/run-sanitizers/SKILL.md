@@ -12,37 +12,31 @@ failures; it does not replace functional tests or performance measurement.
 ## Procedure
 
 1. Start from the repository root. Preserve unrelated working-tree changes.
-2. Configure a fresh Debug sanitizer build:
+2. Configure the repository's Debug sanitizer preset:
 
    ```sh
-   cmake -S . -B out/build/sanitize -G "Unix Makefiles" \
-     -DCMAKE_BUILD_TYPE=Debug \
-     -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
-     -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
-     -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined"
-   cmake --build out/build/sanitize --parallel
+   cmake --preset sanitize
+   cmake --build --preset sanitize --parallel
    ```
 
-   On macOS, pass a compatible `-DCMAKE_OSX_SYSROOT=...` when required by the
-   active compiler.
+   The preset configures a compatible SDK on macOS and enables ASan and UBSan.
 
 3. Run the unit, property, differential, protocol, queue, gateway, and fuzz
    tests under strict sanitizer behavior:
 
    ```sh
-   ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
-   UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-   ctest --test-dir out/build/sanitize --output-on-failure
+   ctest --preset sanitize
    ```
 
 4. Re-run the highest-risk targets individually when a failure needs isolation:
 
    ```sh
-   ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
-   UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-   ctest --test-dir out/build/sanitize --output-on-failure \
+   ctest --preset sanitize \
      -R "low_latency_exchange\.(differential|fuzz|gateway)"
    ```
+
+   The preset requests fail-fast ASan/UBSan diagnostics. It does not force
+   `detect_leaks=1`, which AppleClang does not support on this project host.
 
 ## Triage
 

@@ -5,28 +5,29 @@
 The deterministic order book, v1 binary codecs, bounded SPSC queues, and local
 Boost.Asio TCP gateway exist. The gateway validates headers and payloads,
 enforces per-session sequence monotonicity, and flushes protocol errors before
-closing. Phase 3 remains active until cancel/replace and overload behavior are
-fully covered through TCP. Phase 4 has not started.
+closing. Phase 3 is complete: scripted TCP coverage verifies cancel, replace,
+and overload behavior, and the local gateway has a documented executable
+workflow. Phase 4 has not started.
 
 Guardrails: [AGENTS.md](../AGENTS.md), [architecture](../docs/architecture.md),
 and the normative [protocol](../docs/protocol.md).
 
-## Phase 3: finish local gateway
+## Phase 3: local gateway complete
 
-- [ ] Add a scripted TCP cancel flow: submit a resting order, cancel it, verify
+- [x] Add a scripted TCP cancel flow: submit a resting order, cancel it, verify
   `cancel_accepted`, then verify the order no longer trades -> verify:
-  `ctest --test-dir out/build/debug --output-on-failure -R low_latency_exchange.gateway`
-- [ ] Add scripted TCP replace coverage for retained priority, priority loss,
+  `ctest --preset debug -R low_latency_exchange.gateway`
+- [x] Add scripted TCP replace coverage for retained priority, priority loss,
   and a replacement that crosses the spread -> verify:
-  `ctest --test-dir out/build/debug --output-on-failure -R low_latency_exchange.gateway`
-- [ ] Specify and test bounded inbound-queue overload: fill the queue without
+  `ctest --preset debug -R low_latency_exchange.gateway`
+- [x] Specify and test bounded inbound-queue overload: fill the queue without
   an engine consumer, send one frame, receive `session_overloaded`, and observe
   disconnect without a hang or unbounded allocation -> verify:
-  `ctest --test-dir out/build/debug --output-on-failure -R low_latency_exchange.gateway`
-- [ ] Run the gateway suite under ASan/UBSan after the new paths are added ->
-  verify: `ctest --test-dir out/build/sanitize --output-on-failure -R low_latency_exchange.gateway`
-- [ ] Document the scripted local gateway invocation once an application entry
-  point exists; do not claim it before then -> verify:
+  `ctest --preset debug -R low_latency_exchange.gateway`
+- [x] Run the gateway suite under ASan/UBSan after the new paths are added ->
+  verify: `ctest --preset sanitize -R low_latency_exchange.gateway`
+- [x] Document the scripted local gateway invocation once an application entry
+  point exists -> verify:
   `rg -n "gateway|TCP" README.md docs/architecture.md`
 
 ## Phase 4: prepare market-data pipeline
