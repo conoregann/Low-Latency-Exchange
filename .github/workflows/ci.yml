@@ -24,3 +24,21 @@ jobs:
 
       - name: Test
         run: ctest --preset debug
+
+  sanitize-gateway:
+    runs-on: macos-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Boost
+        run: brew install boost
+
+      - name: Configure sanitizer build
+        run: cmake --preset sanitize
+
+      - name: Build sanitizer targets
+        run: cmake --build --preset sanitize --parallel
+
+      - name: Run gateway under sanitizers
+        run: ctest --preset sanitize -R low_latency_exchange.gateway
