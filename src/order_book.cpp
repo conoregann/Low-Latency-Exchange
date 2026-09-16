@@ -286,6 +286,32 @@ BookDepth OrderBook::depth(std::size_t max_depth) const {
     };
 }
 
+void OrderBook::copy_depth(std::span<std::optional<LevelQuote>> bid_out,
+                           std::span<std::optional<LevelQuote>> ask_out) const noexcept {
+    for (auto& level : bid_out) {
+        level.reset();
+    }
+    for (auto& level : ask_out) {
+        level.reset();
+    }
+
+    std::size_t index = 0;
+    for (const auto& [price, level] : bids_) {
+        if (index == bid_out.size()) {
+            break;
+        }
+        bid_out[index++] = LevelQuote{price, *Quantity::from_units(level.total_units), level.orders.size()};
+    }
+
+    index = 0;
+    for (const auto& [price, level] : asks_) {
+        if (index == ask_out.size()) {
+            break;
+        }
+        ask_out[index++] = LevelQuote{price, *Quantity::from_units(level.total_units), level.orders.size()};
+    }
+}
+
 std::size_t OrderBook::resting_order_count() const noexcept {
     return resting_order_count_;
 }

@@ -35,7 +35,11 @@ int run_gateway(std::uint16_t port) {
     boost::asio::io_context io_ctx;
     low_latency_exchange::InboundQueue inbound;
     low_latency_exchange::OutboundQueue outbound;
-    low_latency_exchange::MatchingEngineService engine(inbound, outbound);
+    low_latency_exchange::MarketDataQueue market_data_queue;
+    low_latency_exchange::MarketDataFeed market_data_feed(market_data_queue);
+    low_latency_exchange::MatchingEngineService engine(inbound, outbound, &market_data_feed);
+    low_latency_exchange::MarketDataPublisher market_data_publisher(market_data_queue);
+    low_latency_exchange::MarketDataBook published_book;
     low_latency_exchange::TcpGateway gateway(io_ctx, port, inbound, outbound);
 
     boost::asio::signal_set signals(io_ctx, SIGINT, SIGTERM);
@@ -53,6 +57,13 @@ int run_gateway(std::uint16_t port) {
             }
         }
     });
+    std::jthread publisher_thread([&market_data_publisher, &published_book](std::stop_token stop_token) {
+        while (!stop_token.stop_requested()) {
+            if (!market_data_publisher.publish_one(published_book)) {
+                std::this_thread::sleep_for(std::chrono::microseconds(200));
+            }
+        }
+    });
 
     gateway.start();
     std::cout << "Low-Latency Exchange " << low_latency_exchange::version() << " gateway listening on 127.0.0.1:"
@@ -61,6 +72,8 @@ int run_gateway(std::uint16_t port) {
 
     engine_thread.request_stop();
     engine_thread.join();
+    publisher_thread.request_stop();
+    publisher_thread.join();
     gateway.stop();
     return 0;
 }
