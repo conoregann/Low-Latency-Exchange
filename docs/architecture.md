@@ -107,5 +107,21 @@ Phase 3 starts with a frozen v1 wire contract so framing, versioning, and error 
 - The `low_latency_exchange --gateway [port]` executable starts the local server (default port `9000`) and runs the matching service as the queue consumer.
 - The `sanitize` CMake preset and the CI `sanitize-gateway` job run the gateway suite under AddressSanitizer and UndefinedBehaviorSanitizer.
 
+## Phase 4: Market-data pipeline
+
+### Ownership and backpressure decision
+
+The matching-engine thread is the only producer of market-data events. One publisher thread is the only consumer of the `MarketDataQueue`, a fixed-capacity (1024 event) SPSC ring. This ownership is deliberate: no socket, subscriber, or publisher work can block the single writer of the order book.
+
+When the ring is full, `MarketDataFeed` drops the new market-data event, increments `dropped_events`, and records queue occupancy. It never spins, waits, allocates, or retries on the matching path. A drop marks the feed as needing a snapshot, so the next event successfully placed on the queue is a recovery snapshot rather than an incremental update.
+
+### Event model and subscriber recovery
+
+Each `MarketDataEvent` has a monotonic `FeedSequence`, an event kind, and fixed-size arrays for the best five bid and ask levels. Both snapshots and depth updates contain the full bounded depth image: updates therefore include the current best prices while allowing a client to reconstruct the complete published depth without variable-size allocation.
+
+The first event is a snapshot. Subsequent commands emit sequenced depth updates, with periodic snapshots every 64 successful updates. `MarketDataBook` accepts a depth update only when its feed sequence is contiguous. A gap makes it unsynchronized until it receives the next snapshot, which resets the book to a known state.
+
+`MarketDataMetrics` reports published events, dropped events, current queue occupancy, and high-water occupancy. The market-data test suite proves that a non-consuming publisher cannot stall matching, and that a snapshot followed by sequenced updates reconstructs the engine's published depth.
+
 ## Next Steps
-- **Phase 4**: Market-data publisher pipeline with bounded lock-free SPSC queues and Level-2 snapshot recovery.
+- **Phase 5**: Event capture and deterministic replay with framed checksummed logs and a recorded-state digest.

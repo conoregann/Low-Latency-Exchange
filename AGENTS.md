@@ -41,6 +41,7 @@ requested, testable outcome; stop when it is met.
 | --- | --- |
 | `include/low_latency_exchange/` | Public domain, protocol, queue, and transport interfaces. |
 | `src/order_book.cpp` | Single-writer matching implementation only. |
+| `include/low_latency_exchange/market_data.hpp`, `src/market_data.cpp` | Fixed-size feed events, SPSC queue producer/consumer, and subscriber recovery state. |
 | `src/protocol.cpp` | Bounds-checked v1 codec implementation. |
 | `src/tcp_gateway.cpp` | Boost.Asio transport, session validation, and queue handoff. |
 | `tests/` | Unit, property, differential, fuzz, and TCP integration coverage. |
