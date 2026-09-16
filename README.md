@@ -59,6 +59,14 @@ cmake --build --preset sanitize --parallel
 ctest --preset sanitize -R low_latency_exchange.gateway
 ```
 
+## Market-data pipeline
+
+The matching engine produces fixed-size five-level depth updates through a bounded SPSC queue. The local publisher consumes that queue independently of matching and maintains recoverable subscriber state. A queue-full condition is counted and drops only market-data work; it never blocks the matching engine. The next queued event after a drop is a complete snapshot, allowing a subscriber to recover from a sequence gap.
+
+```sh
+ctest --preset debug -R low_latency_exchange.market_data
+```
+
 ## Development rules
 
 - Keep the matching core deterministic and independent of sockets, disk I/O, logging, and locks.
