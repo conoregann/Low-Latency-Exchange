@@ -15,7 +15,7 @@ The project is a simulator for engineering practice, not a real trading system o
 
 ## Build and test
 
-Requirements: CMake 3.25+, a C++20 compiler, and Unix Makefiles (included with the macOS Command Line Tools and common Linux build toolchains).
+Requirements: CMake 3.25+, a C++20 compiler, Boost 1.70+ (Asio), and Unix Makefiles (included with the macOS Command Line Tools and common Linux build toolchains).
 
 ```sh
 cmake --preset debug
