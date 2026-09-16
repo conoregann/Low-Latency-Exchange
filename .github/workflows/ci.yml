@@ -12,6 +12,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+      
+      - name: Install Boost
+        run: brew install boost
 
       - name: Configure
         run: cmake --preset debug
@@ -21,6 +24,3 @@ jobs:
 
       - name: Test
         run: ctest --preset debug
-
-      - name: Install Boost
-        run: brew install boost
