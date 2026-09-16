@@ -23,6 +23,4 @@ jobs:
         run: ctest --preset debug
 
       - name: Install Boost
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libboost-dev
+        run: brew install boost
