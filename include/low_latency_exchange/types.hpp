@@ -90,6 +90,27 @@ class SequenceNumber final {
     std::uint64_t value_;
 };
 
+class FeedSequence final {
+  public:
+    [[nodiscard]] static constexpr std::optional<FeedSequence> from_value(std::uint64_t value) noexcept {
+        if (value == 0) {
+            return std::nullopt;
+        }
+        return FeedSequence{value};
+    }
+
+    [[nodiscard]] constexpr std::uint64_t value() const noexcept {
+        return value_;
+    }
+
+    constexpr auto operator<=>(const FeedSequence&) const noexcept = default;
+
+  private:
+    explicit constexpr FeedSequence(std::uint64_t value) noexcept : value_{value} {}
+
+    std::uint64_t value_;
+};
+
 enum class Side : std::uint8_t {
     buy,
     sell,
@@ -128,6 +149,13 @@ struct hash<low_latency_exchange::OrderId> {
 template <>
 struct hash<low_latency_exchange::SequenceNumber> {
     std::size_t operator()(const low_latency_exchange::SequenceNumber& seq) const noexcept {
+        return std::hash<std::uint64_t>{}(seq.value());
+    }
+};
+
+template <>
+struct hash<low_latency_exchange::FeedSequence> {
+    std::size_t operator()(const low_latency_exchange::FeedSequence& seq) const noexcept {
         return std::hash<std::uint64_t>{}(seq.value());
     }
 };

@@ -31,6 +31,7 @@ find_package(Boost REQUIRED)
 add_library(low_latency_exchange_core STATIC
     src/version.cpp
     src/order_book.cpp
+    src/market_data.cpp
     src/protocol.cpp
     src/tcp_gateway.cpp
 )
@@ -123,6 +124,14 @@ if(BUILD_TESTING)
     low_latency_exchange_enable_warnings(low_latency_exchange_spsc_queue_test)
 
     add_test(NAME low_latency_exchange.spsc_queue COMMAND low_latency_exchange_spsc_queue_test)
+
+    add_executable(low_latency_exchange_market_data_test
+        tests/market_data_test.cpp
+    )
+    target_link_libraries(low_latency_exchange_market_data_test PRIVATE low_latency_exchange_core)
+    low_latency_exchange_enable_warnings(low_latency_exchange_market_data_test)
+
+    add_test(NAME low_latency_exchange.market_data COMMAND low_latency_exchange_market_data_test)
 
     add_executable(low_latency_exchange_gateway_test
         tests/gateway_test.cpp
