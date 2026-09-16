@@ -92,6 +92,7 @@ class OrderBook final {
     [[nodiscard]] std::vector<LevelQuote> bid_depth(std::size_t max_depth = 5) const;
     [[nodiscard]] std::vector<LevelQuote> ask_depth(std::size_t max_depth = 5) const;
     [[nodiscard]] std::size_t resting_order_count() const noexcept;
+    [[nodiscard]] bool contains(OrderId order_id) const noexcept;
     [[nodiscard]] bool validate_invariants() const noexcept;
 
   private:

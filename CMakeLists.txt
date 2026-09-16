@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.25)
 
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 project(LowLatencyExchange VERSION 0.1.0 LANGUAGES CXX)
 
 option(LOW_LATENCY_EXCHANGE_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
@@ -18,10 +22,17 @@ function(low_latency_exchange_enable_warnings target_name)
     endif()
 endfunction()
 
+if(APPLE AND EXISTS "/opt/homebrew")
+    list(PREPEND CMAKE_PREFIX_PATH "/opt/homebrew")
+endif()
+
+find_package(Boost REQUIRED)
+
 add_library(low_latency_exchange_core STATIC
     src/version.cpp
     src/order_book.cpp
     src/protocol.cpp
+    src/tcp_gateway.cpp
 )
 
 target_compile_features(low_latency_exchange_core PUBLIC cxx_std_20)
@@ -30,6 +41,7 @@ target_include_directories(low_latency_exchange_core
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+target_link_libraries(low_latency_exchange_core PUBLIC Boost::boost)
 low_latency_exchange_enable_warnings(low_latency_exchange_core)
 
 add_executable(low_latency_exchange
@@ -111,5 +123,12 @@ if(BUILD_TESTING)
     low_latency_exchange_enable_warnings(low_latency_exchange_spsc_queue_test)
 
     add_test(NAME low_latency_exchange.spsc_queue COMMAND low_latency_exchange_spsc_queue_test)
-endif()
 
+    add_executable(low_latency_exchange_gateway_test
+        tests/gateway_test.cpp
+    )
+    target_link_libraries(low_latency_exchange_gateway_test PRIVATE low_latency_exchange_core)
+    low_latency_exchange_enable_warnings(low_latency_exchange_gateway_test)
+
+    add_test(NAME low_latency_exchange.gateway COMMAND low_latency_exchange_gateway_test)
+endif()
