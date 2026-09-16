@@ -1,6 +1,6 @@
 # Architecture
 
-## Current Baseline: Phase 1 Deterministic Matching Core
+## Current Baseline: Phase 3 Binary Protocol and Local Gateway
 
 The matching core (`low_latency_exchange_core`) is an in-memory, deterministic limit order book implemented in modern C++20. It operates as a single-writer domain model free from external I/O, threads, or locks.
 
@@ -86,6 +86,23 @@ Validates engine robustness against:
 - Deep single-price queue churn (1,000 orders in a single price level, arbitrary middle-of-queue node erasures).
 - Multi-level aggressive liquidity sweeps across dozens of contiguous price levels.
 
-## Next Steps (Phases 3 & 4)
-- **Phase 3**: Binary wire protocol framing, length-checked packet encode/decode routines, and local Boost.Asio TCP gateway.
+## Phase 3: Binary Protocol and Local Gateway
+
+Phase 3 starts with a frozen v1 wire contract so framing, versioning, and error codes are independent of sockets.
+
+### 1. Protocol contract (`docs/protocol.md`, `protocol.hpp`)
+- 8-byte little-endian header: magic `0x584C`, version, message type, flags, payload length.
+- Fixed-size inbound commands (`new_order`, `cancel_order`, `replace_order`) and outbound events (acks, rejects, executions, protocol errors).
+- Bounded payload length (1024) and reserved-bit rejection so hostile length claims cannot allocate.
+- Header and payload codecs are bounds-checked and reject invalid fixed-size fields before commands reach the engine.
+
+### 2. Local TCP gateway (`tcp_gateway.hpp`, `tcp_gateway.cpp`)
+- Boost.Asio accepts local TCP clients and decodes v1 frames into the bounded inbound SPSC queue.
+- The matching service remains the single writer for the order book and emits acknowledgements, rejects, and execution notifications through the outbound queue.
+- Per-session sequences must increase strictly; queue overload and protocol errors produce an error frame and close the session after the frame is flushed.
+- The gateway drains outbound events on its io_context thread, preserving socket write ordering while keeping socket I/O out of the matching core.
+
+## Next Steps
+- **Phase 3 remaining**: broaden scripted TCP coverage for cancel/replace flows and overload behavior, then document the executable gateway workflow.
+
 - **Phase 4**: Market-data publisher pipeline with bounded lock-free SPSC queues and Level-2 snapshot recovery.
