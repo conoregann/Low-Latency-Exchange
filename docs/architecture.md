@@ -1,6 +1,6 @@
 # Architecture
 
-## Current Baseline: Phase 3 Binary Protocol and Local Gateway
+## Current Baseline: Phase 4 Market-Data Pipeline
 
 The matching core (`low_latency_exchange_core`) is an in-memory, deterministic limit order book implemented in modern C++20. It operates as a single-writer domain model free from external I/O, threads, or locks.
 
