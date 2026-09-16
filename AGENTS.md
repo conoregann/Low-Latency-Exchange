@@ -62,25 +62,18 @@ ctest --test-dir out/build/debug --output-on-failure \
   -R "low_latency_exchange\.(protocol|gateway|fuzz)"
 
 # ASan + UBSan build and suite
-cmake -S . -B out/build/sanitize -G "Unix Makefiles" \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
-  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
-  -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined"
-cmake --build out/build/sanitize --parallel
-ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
-UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-ctest --test-dir out/build/sanitize --output-on-failure
+cmake --preset sanitize
+cmake --build --preset sanitize --parallel
+ctest --preset sanitize
 
 # Fuzz regression target under the sanitizer build
-ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
-UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
-ctest --test-dir out/build/sanitize --output-on-failure \
+ctest --preset sanitize \
   -R "low_latency_exchange\.fuzz"
 ```
 
-On macOS, use the repository preset or pass the active Xcode SDK as
-`-DCMAKE_OSX_SYSROOT=...` if the compiler cannot find a compatible SDK.
+The sanitizer preset sets a compatible macOS SDK and strict ASan/UBSan failure
+handling. Leak detection is deliberately not forced because AppleClang does not
+support it in this environment.
 
 ## Before handing off
 
