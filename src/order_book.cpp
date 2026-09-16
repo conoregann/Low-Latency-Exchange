@@ -354,4 +354,8 @@ bool OrderBook::validate_invariants() const noexcept {
     return true;
 }
 
+bool OrderBook::contains(OrderId order_id) const noexcept {
+    return resting_orders_.contains(order_id);
+}
+
 }  // namespace low_latency_exchange

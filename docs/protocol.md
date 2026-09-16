@@ -203,4 +203,4 @@ Gateway sequence policy (to be enforced when the TCP session exists): inbound `s
 
 ## Implementation mapping
 
-C++ constants, enumerations, payload sizes, and header encode/decode live in `include/low_latency_exchange/protocol.hpp`. Payload codecs and the TCP gateway are subsequent Phase 3 components.
+C++ constants, enumerations, payload sizes, and header encode/decode live in `include/low_latency_exchange/protocol.hpp`. Payload codecs live in `src/protocol.cpp`; the local gateway and matching service live in `include/low_latency_exchange/tcp_gateway.hpp` and `src/tcp_gateway.cpp`.
