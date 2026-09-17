@@ -97,6 +97,7 @@ class OrderBook final {
     [[nodiscard]] std::size_t resting_order_count() const noexcept;
     [[nodiscard]] bool contains(OrderId order_id) const noexcept;
     [[nodiscard]] bool validate_invariants() const noexcept;
+    [[nodiscard]] std::uint64_t state_digest() const noexcept;
 
   private:
     struct RestingOrder {

@@ -1,6 +1,6 @@
 # Architecture
 
-## Current Baseline: Phase 4 Market-Data Pipeline
+## Current Baseline: Phase 5 Event Capture and Deterministic Replay
 
 The matching core (`low_latency_exchange_core`) is an in-memory, deterministic limit order book implemented in modern C++20. It operates as a single-writer domain model free from external I/O, threads, or locks.
 
@@ -123,5 +123,13 @@ The first event is a snapshot. Subsequent commands emit sequenced depth updates,
 
 `MarketDataMetrics` reports published events, dropped events, current queue occupancy, and high-water occupancy. The market-data test suite proves that a non-consuming publisher cannot stall matching, and that a snapshot followed by sequenced updates reconstructs the engine's published depth.
 
+## Phase 5: Event capture and deterministic replay
+
+Accepted commands leave the matching service through a second bounded SPSC queue, separate from market data. The engine is its only producer; a recorder thread is its only consumer. The recorder serializes each command as a fixed, checksummed log record, while the core remains free of filesystem handles and disk I/O.
+
+Capture is deliberately best-effort under overload: queue-full increments a drop metric rather than blocking the matching thread. A run with any capture drop exits non-zero, making the log visibly unsuitable for recovery rather than silently presenting a partial history as authoritative.
+
+`low_latency_exchange_replay` reads the log sequentially, validates every header, fixed payload size, checksum, and command encoding, then applies commands to a new `OrderBook`. The final state digest covers the ordered bid and ask levels plus FIFO order state. A matching digest between the live book and replay demonstrates deterministic recovery for the recorded command sequence. The precise binary contract and failure categories are in [event_log.md](event_log.md).
+
 ## Next Steps
-- **Phase 5**: Event capture and deterministic replay with framed checksummed logs and a recorded-state digest.
+- **Phase 6**: Add benchmark scenarios, latency histograms, and reproducible performance baselines without weakening core correctness checks.

@@ -9,7 +9,9 @@ closing. Phase 3 is complete: scripted TCP coverage verifies cancel, replace,
 and overload behavior, and the local gateway has a documented executable
 workflow. Phase 4 is complete: the engine publishes bounded, recoverable
 five-level market-data updates without allowing a slow publisher to stall
-matching. Phase 5 has not started.
+matching. Phase 5 is complete: accepted commands are captured outside the
+matching path in a bounded queue, written as framed checksummed records, and
+replayed into a fresh deterministic book.
 
 Guardrails: [AGENTS.md](../AGENTS.md), [architecture](../docs/architecture.md),
 and the normative [protocol](../docs/protocol.md).
@@ -50,8 +52,24 @@ and the normative [protocol](../docs/protocol.md).
 - [x] Run property, differential, protocol, queue, and publisher-adjacent tests
   after integration -> verify: `ctest --preset debug`
 
+## Phase 5: event capture and replay complete
+
+- [x] Define a versioned fixed-frame event-log contract with payload bounds and
+  checksums -> verify: `rg -n "checksum|Record format|truncated" docs/event_log.md`
+- [x] Capture only accepted commands through a bounded engine-to-recorder SPSC
+  queue so disk I/O cannot stall matching -> verify:
+  `ctest --preset debug -R low_latency_exchange.event_log`
+- [x] Add a replay executable that builds a fresh order book and reports its
+  deterministic final-state digest -> verify:
+  `./out/build/debug/low_latency_exchange_replay`
+- [x] Test live/replay digest equality plus checksum-corruption, truncation, and
+  capture-overload failure behavior -> verify:
+  `ctest --preset debug -R low_latency_exchange.event_log`
+- [x] Run replay and gateway critical paths under ASan/UBSan -> verify:
+  `ctest --preset sanitize -R "low_latency_exchange\\.(gateway|event_log)"`
+
 ## Completion discipline
 
 Check off an item only after its verification command succeeds from a clean
-build. Keep Phase 4 changes in a separate commit series from Phase 3 gateway
-completion unless an interface change requires an atomic migration.
+build. Keep each completed phase in a separate, reviewable commit series unless
+an interface change requires an atomic migration.
