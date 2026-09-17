@@ -67,6 +67,32 @@ The matching engine produces fixed-size five-level depth updates through a bound
 ctest --preset debug -R low_latency_exchange.market_data
 ```
 
+## Event capture and deterministic replay
+
+The optional Phase 5 recorder writes accepted commands to a framed, checksummed
+append-only log. File I/O runs on a recorder thread behind a bounded queue, so
+the matching engine does not wait for disk. Start a gateway with an explicit
+port and log path:
+
+```sh
+./out/build/debug/low_latency_exchange --gateway 9000 /tmp/orders.lxlg
+```
+
+After the gateway exits cleanly, replay the file into a fresh order book:
+
+```sh
+./out/build/debug/low_latency_exchange_replay /tmp/orders.lxlg
+```
+
+Replay prints the accepted-command count and final state digest. It fails with
+a specific error for a malformed, corrupt, truncated, or non-replayable log.
+The log record contract and capture-overload policy are specified in
+[docs/event_log.md](docs/event_log.md). Run the focused coverage with:
+
+```sh
+ctest --preset debug -R low_latency_exchange.event_log
+```
+
 ## Development rules
 
 - Keep the matching core deterministic and independent of sockets, disk I/O, logging, and locks.
