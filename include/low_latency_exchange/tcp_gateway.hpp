@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "low_latency_exchange/order_book.hpp"
+#include "low_latency_exchange/market_data.hpp"
 #include "low_latency_exchange/order_command.hpp"
 #include "low_latency_exchange/protocol.hpp"
 #include "low_latency_exchange/spsc_queue.hpp"
@@ -48,8 +49,10 @@ using OutboundQueue = BoundedSPSCQueue<OutboundMessage, 4096>;
  */
 class MatchingEngineService final {
   public:
-    explicit MatchingEngineService(InboundQueue& inbound, OutboundQueue& outbound) noexcept
-        : inbound_{inbound}, outbound_{outbound} {}
+    explicit MatchingEngineService(InboundQueue& inbound,
+                                   OutboundQueue& outbound,
+                                   MarketDataFeed* market_data_feed = nullptr) noexcept
+        : inbound_{inbound}, outbound_{outbound}, market_data_feed_{market_data_feed} {}
 
     bool process_one();
     std::size_t process_available();
@@ -70,6 +73,7 @@ class MatchingEngineService final {
 
     InboundQueue& inbound_;
     OutboundQueue& outbound_;
+    MarketDataFeed* market_data_feed_ = nullptr;
     OrderBook book_{};
     std::unordered_map<OrderId, std::uint64_t> order_sessions_{};
 };
