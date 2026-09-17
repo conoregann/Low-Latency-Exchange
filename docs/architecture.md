@@ -1,6 +1,6 @@
 # Architecture
 
-## Current Baseline: Phase 5 Event Capture and Deterministic Replay
+## Current Baseline: Phase 6 Observability and Performance Baselines
 
 The matching core (`low_latency_exchange_core`) is an in-memory, deterministic limit order book implemented in modern C++20. It operates as a single-writer domain model free from external I/O, threads, or locks.
 
@@ -131,5 +131,27 @@ Capture is deliberately best-effort under overload: queue-full increments a drop
 
 `low_latency_exchange_replay` reads the log sequentially, validates every header, fixed payload size, checksum, and command encoding, then applies commands to a new `OrderBook`. The final state digest covers the ordered bid and ask levels plus FIFO order state. A matching digest between the live book and replay demonstrates deterministic recovery for the recorded command sequence. The precise binary contract and failure categories are in [event_log.md](event_log.md).
 
+## Phase 6: Observability and performance work
+
+`MatchingEngineService` owns fixed-memory telemetry on the same single-writer
+thread that owns the book: accepted/rejected commands, accepted/rejected
+cancels, executions, protocol bytes, inbound/outbound queue high-water marks,
+and command-enqueue-to-terminal-response latency buckets. The metrics are
+snapshotted after the engine stops; they deliberately do not introduce a lock or
+shared mutable monitoring state into the matching path.
+
+`low_latency_exchange_benchmark` uses a seedable synthetic flow of resting,
+crossing, and cancel commands. Core mode times direct matching across configurable
+independent books. Gateway mode separately times a loopback TCP client from
+write through terminal response. The harness reports throughput and logarithmic
+p50/p99/p99.9 latency upper bounds, and documents the exact seed and shape used.
+
+The first measurement identified the gateway's 1 ms periodic outbound drain as
+the end-to-end latency floor. The interval is now 50 microseconds; this improves
+loopback acknowledgement latency without modifying matching. The measured
+before/after evidence and its idle-wakeup tradeoff are recorded in
+[benchmarks.md](benchmarks.md).
+
 ## Next Steps
-- **Phase 6**: Add benchmark scenarios, latency histograms, and reproducible performance baselines without weakening core correctness checks.
+- **Phase 7**: Add the portfolio-oriented architecture diagram, terminal demo,
+  threat/failure-mode summary, and release checklist.

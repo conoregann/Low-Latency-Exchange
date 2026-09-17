@@ -40,5 +40,5 @@ jobs:
       - name: Build sanitizer targets
         run: cmake --build --preset sanitize --parallel
 
-      - name: Run gateway and replay paths under sanitizers
-        run: ctest --preset sanitize -R "low_latency_exchange\\.(gateway|event_log)"
+      - name: Run gateway, replay, telemetry, and workload paths under sanitizers
+        run: ctest --preset sanitize -R "low_latency_exchange\\.(gateway|event_log|observability|benchmark)"

@@ -30,6 +30,7 @@ find_package(Boost REQUIRED)
 
 add_library(low_latency_exchange_core STATIC
     src/version.cpp
+    src/benchmark.cpp
     src/event_log.cpp
     src/order_book.cpp
     src/market_data.cpp
@@ -57,6 +58,12 @@ add_executable(low_latency_exchange_replay
 )
 target_link_libraries(low_latency_exchange_replay PRIVATE low_latency_exchange_core)
 low_latency_exchange_enable_warnings(low_latency_exchange_replay)
+
+add_executable(low_latency_exchange_benchmark
+    apps/benchmark/main.cpp
+)
+target_link_libraries(low_latency_exchange_benchmark PRIVATE low_latency_exchange_core)
+low_latency_exchange_enable_warnings(low_latency_exchange_benchmark)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -147,6 +154,22 @@ if(BUILD_TESTING)
     low_latency_exchange_enable_warnings(low_latency_exchange_event_log_test)
 
     add_test(NAME low_latency_exchange.event_log COMMAND low_latency_exchange_event_log_test)
+
+    add_executable(low_latency_exchange_observability_test
+        tests/observability_test.cpp
+    )
+    target_link_libraries(low_latency_exchange_observability_test PRIVATE low_latency_exchange_core)
+    low_latency_exchange_enable_warnings(low_latency_exchange_observability_test)
+
+    add_test(NAME low_latency_exchange.observability COMMAND low_latency_exchange_observability_test)
+
+    add_executable(low_latency_exchange_benchmark_test
+        tests/benchmark_test.cpp
+    )
+    target_link_libraries(low_latency_exchange_benchmark_test PRIVATE low_latency_exchange_core)
+    low_latency_exchange_enable_warnings(low_latency_exchange_benchmark_test)
+
+    add_test(NAME low_latency_exchange.benchmark COMMAND low_latency_exchange_benchmark_test)
 
     add_executable(low_latency_exchange_gateway_test
         tests/gateway_test.cpp
