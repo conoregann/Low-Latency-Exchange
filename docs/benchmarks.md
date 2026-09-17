@@ -1,4 +1,4 @@
-# Phase 6 benchmark baseline
+# Benchmark methodology and baseline
 
 ## Scope
 

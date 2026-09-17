@@ -82,7 +82,7 @@ support it in this environment.
 
 Run the narrowest relevant tests, then the full suite for core, protocol, queue,
 or transport changes. Inspect `git diff --check` and preserve unrelated working
-tree changes. See [.agents/PLANS.md](.agents/PLANS.md) for active work and:
+tree changes. See the repository documentation for current behavior and:
 
 - [.agents/skills/run-sanitizers/SKILL.md](.agents/skills/run-sanitizers/SKILL.md)
 - [.agents/skills/verify-wire-protocol/SKILL.md](.agents/skills/verify-wire-protocol/SKILL.md)

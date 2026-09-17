@@ -1,6 +1,6 @@
 # Architecture
 
-## Current Baseline: Phase 6 Observability and Performance Baselines
+## System architecture
 
 The matching core (`low_latency_exchange_core`) is an in-memory, deterministic limit order book implemented in modern C++20. It operates as a single-writer domain model free from external I/O, threads, or locks.
 
@@ -60,7 +60,7 @@ load generator / replay client
 - **Transport & Gateway**: Encapsulates Boost.Asio networking and binary codec at the edges.
 - **Inter-thread Boundary**: Single-Producer Single-Consumer (SPSC) lock-free bounded rings decouple networking and market data fan-out from the matching engine.
 
-## Phase 2: Property, Differential, and Fuzz Testing Architecture
+## Correctness and failure testing
 
 The matching core is validated by a multi-layered testing harness guaranteeing correctness, invariant preservation, and resistance to adversarial inputs:
 
@@ -86,9 +86,9 @@ Validates engine robustness against:
 - Deep single-price queue churn (1,000 orders in a single price level, arbitrary middle-of-queue node erasures).
 - Multi-level aggressive liquidity sweeps across dozens of contiguous price levels.
 
-## Phase 3: Binary Protocol and Local Gateway
+## Binary protocol and local gateway
 
-Phase 3 starts with a frozen v1 wire contract so framing, versioning, and error codes are independent of sockets.
+The v1 wire contract freezes framing, versioning, and error codes independently of sockets.
 
 ### 1. Protocol contract (`docs/protocol.md`, `protocol.hpp`)
 - 8-byte little-endian header: magic `0x584C`, version, message type, flags, payload length.
@@ -105,9 +105,9 @@ Phase 3 starts with a frozen v1 wire contract so framing, versioning, and error 
 ### 3. Gateway verification and local operation
 - Scripted TCP integration coverage exercises new orders, acknowledgements, executions, cancellation, retained and lost replace priority, spread-crossing replacements, malformed frames, oversized lengths, sequence violations, and inbound-queue overload disconnects.
 - The `low_latency_exchange --gateway [port]` executable starts the local server (default port `9000`) and runs the matching service as the queue consumer.
-- The `sanitize` CMake preset and the CI `sanitize-gateway` job run the gateway suite under AddressSanitizer and UndefinedBehaviorSanitizer.
+- The `sanitize` CMake preset and CI run gateway, replay, telemetry, and workload coverage under AddressSanitizer and UndefinedBehaviorSanitizer.
 
-## Phase 4: Market-data pipeline
+## Market-data pipeline
 
 ### Ownership and backpressure decision
 
@@ -123,7 +123,7 @@ The first event is a snapshot. Subsequent commands emit sequenced depth updates,
 
 `MarketDataMetrics` reports published events, dropped events, current queue occupancy, and high-water occupancy. The market-data test suite proves that a non-consuming publisher cannot stall matching, and that a snapshot followed by sequenced updates reconstructs the engine's published depth.
 
-## Phase 5: Event capture and deterministic replay
+## Event capture and deterministic replay
 
 Accepted commands leave the matching service through a second bounded SPSC queue, separate from market data. The engine is its only producer; a recorder thread is its only consumer. The recorder serializes each command as a fixed, checksummed log record, while the core remains free of filesystem handles and disk I/O.
 
@@ -131,7 +131,7 @@ Capture is deliberately best-effort under overload: queue-full increments a drop
 
 `low_latency_exchange_replay` reads the log sequentially, validates every header, fixed payload size, checksum, and command encoding, then applies commands to a new `OrderBook`. The final state digest covers the ordered bid and ask levels plus FIFO order state. A matching digest between the live book and replay demonstrates deterministic recovery for the recorded command sequence. The precise binary contract and failure categories are in [event_log.md](event_log.md).
 
-## Phase 6: Observability and performance work
+## Observability and performance
 
 `MatchingEngineService` owns fixed-memory telemetry on the same single-writer
 thread that owns the book: accepted/rejected commands, accepted/rejected
@@ -152,6 +152,9 @@ loopback acknowledgement latency without modifying matching. The measured
 before/after evidence and its idle-wakeup tradeoff are recorded in
 [benchmarks.md](benchmarks.md).
 
-## Next Steps
-- **Phase 7**: Add the portfolio-oriented architecture diagram, terminal demo,
-  threat/failure-mode summary, and release checklist.
+## Future improvements
+
+Potential follow-up work includes an architecture diagram, a short terminal demo,
+a threat and failure-mode summary, and a release checklist. Any future
+performance change should preserve the documented measurement method and
+correctness suite.
