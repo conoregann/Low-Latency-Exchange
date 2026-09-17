@@ -25,7 +25,7 @@ jobs:
       - name: Test
         run: ctest --preset debug
 
-  sanitize-gateway:
+  sanitize-critical-paths:
     runs-on: macos-latest
     steps:
       - name: Check out source
@@ -40,5 +40,5 @@ jobs:
       - name: Build sanitizer targets
         run: cmake --build --preset sanitize --parallel
 
-      - name: Run gateway under sanitizers
-        run: ctest --preset sanitize -R low_latency_exchange.gateway
+      - name: Run gateway and replay paths under sanitizers
+        run: ctest --preset sanitize -R "low_latency_exchange\\.(gateway|event_log)"
