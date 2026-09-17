@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "low_latency_exchange/order_book.hpp"
+#include "low_latency_exchange/event_log.hpp"
 #include "low_latency_exchange/market_data.hpp"
 #include "low_latency_exchange/order_command.hpp"
 #include "low_latency_exchange/protocol.hpp"
@@ -51,8 +52,12 @@ class MatchingEngineService final {
   public:
     explicit MatchingEngineService(InboundQueue& inbound,
                                    OutboundQueue& outbound,
-                                   MarketDataFeed* market_data_feed = nullptr) noexcept
-        : inbound_{inbound}, outbound_{outbound}, market_data_feed_{market_data_feed} {}
+                                   MarketDataFeed* market_data_feed = nullptr,
+                                   EventCaptureFeed* event_capture_feed = nullptr) noexcept
+        : inbound_{inbound},
+          outbound_{outbound},
+          market_data_feed_{market_data_feed},
+          event_capture_feed_{event_capture_feed} {}
 
     bool process_one();
     std::size_t process_available();
@@ -67,13 +72,14 @@ class MatchingEngineService final {
   private:
     // Applies bounded outbound-queue backpressure; socket I/O remains outside the engine.
     void push_outbound(OutboundMessage&& msg);
-    void handle_new_order(std::uint64_t session_id, const NewOrder& order);
-    void handle_cancel_order(std::uint64_t session_id, const CancelOrder& order);
-    void handle_replace_order(std::uint64_t session_id, const ReplaceOrder& order);
+    [[nodiscard]] bool handle_new_order(std::uint64_t session_id, const NewOrder& order);
+    [[nodiscard]] bool handle_cancel_order(std::uint64_t session_id, const CancelOrder& order);
+    [[nodiscard]] bool handle_replace_order(std::uint64_t session_id, const ReplaceOrder& order);
 
     InboundQueue& inbound_;
     OutboundQueue& outbound_;
     MarketDataFeed* market_data_feed_ = nullptr;
+    EventCaptureFeed* event_capture_feed_ = nullptr;
     OrderBook book_{};
     std::unordered_map<OrderId, std::uint64_t> order_sessions_{};
 };

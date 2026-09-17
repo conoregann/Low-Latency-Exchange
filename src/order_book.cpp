@@ -6,6 +6,20 @@
 
 namespace low_latency_exchange {
 
+namespace {
+
+constexpr std::uint64_t kFnvOffsetBasis = 14695981039346656037ULL;
+constexpr std::uint64_t kFnvPrime = 1099511628211ULL;
+
+void hash_u64(std::uint64_t value, std::uint64_t& hash) noexcept {
+    for (std::size_t byte = 0; byte < sizeof(value); ++byte) {
+        hash ^= (value >> (byte * 8U)) & 0xFFU;
+        hash *= kFnvPrime;
+    }
+}
+
+}  // namespace
+
 void OrderBook::match_against_book(OrderId incoming_order_id,
                                     Side side,
                                     OrderType type,
@@ -382,6 +396,30 @@ bool OrderBook::validate_invariants() const noexcept {
 
 bool OrderBook::contains(OrderId order_id) const noexcept {
     return resting_orders_.contains(order_id);
+}
+
+std::uint64_t OrderBook::state_digest() const noexcept {
+    std::uint64_t hash = kFnvOffsetBasis;
+
+    const auto hash_side = [&hash](const auto& levels, Side side) {
+        hash_u64(static_cast<std::uint64_t>(side), hash);
+        hash_u64(levels.size(), hash);
+        for (const auto& [price, level] : levels) {
+            hash_u64(static_cast<std::uint64_t>(price.ticks()), hash);
+            hash_u64(level.total_units, hash);
+            hash_u64(level.orders.size(), hash);
+            for (const auto& order : level.orders) {
+                hash_u64(order.order_id.value(), hash);
+                hash_u64(order.sequence.value(), hash);
+                hash_u64(order.remaining_quantity.units(), hash);
+            }
+        }
+    };
+
+    hash_side(bids_, Side::buy);
+    hash_side(asks_, Side::sell);
+    hash_u64(resting_order_count_, hash);
+    return hash;
 }
 
 }  // namespace low_latency_exchange

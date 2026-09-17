@@ -77,7 +77,7 @@ void MatchingEngineService::push_outbound(OutboundMessage&& msg) {
     }
 }
 
-void MatchingEngineService::handle_new_order(std::uint64_t session_id, const NewOrder& order) {
+bool MatchingEngineService::handle_new_order(std::uint64_t session_id, const NewOrder& order) {
     const auto result = book_.submit(order);
 
     if (result.rejection.has_value()) {
@@ -91,7 +91,7 @@ void MatchingEngineService::handle_new_order(std::uint64_t session_id, const New
                 .error_code = protocol::to_error_code(*result.rejection),
             },
         });
-        return;
+        return false;
     }
 
     // Emit execution events (with more flag set)
@@ -147,9 +147,10 @@ void MatchingEngineService::handle_new_order(std::uint64_t session_id, const New
     if (remaining_units > 0 && book_.contains(order.order_id)) {
         order_sessions_[order.order_id] = session_id;
     }
+    return true;
 }
 
-void MatchingEngineService::handle_cancel_order(std::uint64_t session_id, const CancelOrder& order) {
+bool MatchingEngineService::handle_cancel_order(std::uint64_t session_id, const CancelOrder& order) {
     const auto result = book_.cancel(order);
 
     if (result.accepted()) {
@@ -164,6 +165,7 @@ void MatchingEngineService::handle_cancel_order(std::uint64_t session_id, const 
                 .cancelled_quantity = *result.cancelled_quantity,
             },
         });
+        return true;
     } else {
         push_outbound(OutboundMessage{
             .session_id = session_id,
@@ -175,10 +177,11 @@ void MatchingEngineService::handle_cancel_order(std::uint64_t session_id, const 
                 .error_code = protocol::to_error_code(*result.rejection),
             },
         });
+        return false;
     }
 }
 
-void MatchingEngineService::handle_replace_order(std::uint64_t session_id, const ReplaceOrder& order) {
+bool MatchingEngineService::handle_replace_order(std::uint64_t session_id, const ReplaceOrder& order) {
     const auto result = book_.replace(order);
 
     if (result.rejection.has_value()) {
@@ -192,7 +195,7 @@ void MatchingEngineService::handle_replace_order(std::uint64_t session_id, const
                 .error_code = protocol::to_error_code(*result.rejection),
             },
         });
-        return;
+        return false;
     }
 
     for (const auto& exec : result.executions) {
@@ -246,6 +249,7 @@ void MatchingEngineService::handle_replace_order(std::uint64_t session_id, const
             .remaining_quantity = remaining_units,
         },
     });
+    return true;
 }
 
 bool MatchingEngineService::process_one() {
@@ -254,12 +258,19 @@ bool MatchingEngineService::process_one() {
         return false;
     }
 
+    bool accepted = false;
     if (std::holds_alternative<NewOrder>(msg.command)) {
-        handle_new_order(msg.session_id, std::get<NewOrder>(msg.command));
+        const auto& command = std::get<NewOrder>(msg.command);
+        accepted = handle_new_order(msg.session_id, command);
     } else if (std::holds_alternative<CancelOrder>(msg.command)) {
-        handle_cancel_order(msg.session_id, std::get<CancelOrder>(msg.command));
+        const auto& command = std::get<CancelOrder>(msg.command);
+        accepted = handle_cancel_order(msg.session_id, command);
     } else if (std::holds_alternative<ReplaceOrder>(msg.command)) {
-        handle_replace_order(msg.session_id, std::get<ReplaceOrder>(msg.command));
+        const auto& command = std::get<ReplaceOrder>(msg.command);
+        accepted = handle_replace_order(msg.session_id, command);
+    }
+    if (accepted && event_capture_feed_ != nullptr) {
+        event_capture_feed_->capture(msg.command);
     }
     if (market_data_feed_ != nullptr) {
         market_data_feed_->publish(book_);
