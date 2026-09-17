@@ -8,6 +8,11 @@ namespace low_latency_exchange {
 
 namespace {
 
+// The loopback benchmark showed the prior 1 ms timer quantized acknowledgement
+// latency. This interval bounds idle outbound-drain delay without touching the
+// single-writer matching path.
+constexpr auto kOutboundDrainInterval = std::chrono::microseconds(50);
+
 std::vector<std::byte> serialize_outbound(const OutboundMessage& msg) {
     std::array<std::byte, protocol::kMaxPayloadLength> payload_buf{};
     std::size_t payload_size = 0;
@@ -72,9 +77,47 @@ std::vector<std::byte> make_error_frame(protocol::ErrorCode code, std::uint8_t o
 // ==========================================
 
 void MatchingEngineService::push_outbound(OutboundMessage&& msg) {
+    record_outbound_message(msg);
     while (!outbound_.try_push(std::move(msg))) {
         std::this_thread::yield();
     }
+    const std::size_t occupancy = outbound_.size();
+    if (occupancy > metrics_.outbound_queue_high_water) {
+        metrics_.outbound_queue_high_water = occupancy;
+    }
+}
+
+void MatchingEngineService::record_outbound_message(const OutboundMessage& msg) noexcept {
+    const auto payload_size = protocol::expected_payload_length(msg.type);
+    if (payload_size.has_value()) {
+        metrics_.outbound_bytes += protocol::kHeaderSize + *payload_size;
+    }
+}
+
+void MatchingEngineService::record_command_result(const InboundMessage& message, bool accepted) noexcept {
+    if (accepted) {
+        ++metrics_.accepted_commands;
+    } else {
+        ++metrics_.rejected_commands;
+    }
+    if (std::holds_alternative<CancelOrder>(message.command)) {
+        if (accepted) {
+            ++metrics_.accepted_cancels;
+        } else {
+            ++metrics_.rejected_cancels;
+        }
+    }
+    if (message.received_at != std::chrono::steady_clock::time_point{}) {
+        const auto elapsed = std::chrono::steady_clock::now() - message.received_at;
+        const auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
+        command_to_ack_latency_.observe(nanoseconds > 0 ? static_cast<std::uint64_t>(nanoseconds) : 0);
+    }
+}
+
+MatchingEngineMetrics MatchingEngineService::metrics() const noexcept {
+    MatchingEngineMetrics result = metrics_;
+    result.command_to_ack_latency = command_to_ack_latency_.snapshot();
+    return result;
 }
 
 bool MatchingEngineService::handle_new_order(std::uint64_t session_id, const NewOrder& order) {
@@ -96,6 +139,7 @@ bool MatchingEngineService::handle_new_order(std::uint64_t session_id, const New
 
     // Emit execution events (with more flag set)
     for (const auto& exec : result.executions) {
+        ++metrics_.executions;
         const auto resting_session_it = order_sessions_.find(exec.resting_order_id);
         const std::uint64_t resting_session_id =
             (resting_session_it != order_sessions_.end()) ? resting_session_it->second : 0;
@@ -199,6 +243,7 @@ bool MatchingEngineService::handle_replace_order(std::uint64_t session_id, const
     }
 
     for (const auto& exec : result.executions) {
+        ++metrics_.executions;
         const auto resting_session_it = order_sessions_.find(exec.resting_order_id);
         const std::uint64_t resting_session_id =
             (resting_session_it != order_sessions_.end()) ? resting_session_it->second : 0;
@@ -254,6 +299,10 @@ bool MatchingEngineService::handle_replace_order(std::uint64_t session_id, const
 
 bool MatchingEngineService::process_one() {
     InboundMessage msg;
+    const std::size_t inbound_occupancy = inbound_.size();
+    if (inbound_occupancy > metrics_.inbound_queue_high_water) {
+        metrics_.inbound_queue_high_water = inbound_occupancy;
+    }
     if (!inbound_.try_pop(msg)) {
         return false;
     }
@@ -269,6 +318,13 @@ bool MatchingEngineService::process_one() {
         const auto& command = std::get<ReplaceOrder>(msg.command);
         accepted = handle_replace_order(msg.session_id, command);
     }
+    const auto payload_size = protocol::expected_payload_length(
+        std::holds_alternative<NewOrder>(msg.command) ? protocol::MessageType::new_order
+        : std::holds_alternative<CancelOrder>(msg.command) ? protocol::MessageType::cancel_order
+        : protocol::MessageType::replace_order);
+    metrics_.inbound_bytes += msg.wire_bytes != 0 ? msg.wire_bytes
+                                                   : protocol::kHeaderSize + payload_size.value_or(0);
+    record_command_result(msg, accepted);
     if (accepted && event_capture_feed_ != nullptr) {
         event_capture_feed_->capture(msg.command);
     }
@@ -344,7 +400,14 @@ class TcpSession final : public std::enable_shared_from_this<TcpSession> {
                                 static_cast<std::uint8_t>(type));
             return false;
         }
-        if (!gateway_.inbound_.try_push(InboundMessage{session_id_, std::move(command)})) {
+        const auto received_at = std::chrono::steady_clock::now();
+        const auto payload_size = protocol::expected_payload_length(type).value_or(0);
+        if (!gateway_.inbound_.try_push(InboundMessage{
+                .session_id = session_id_,
+                .command = std::move(command),
+                .wire_bytes = static_cast<std::uint32_t>(protocol::kHeaderSize + payload_size),
+                .received_at = received_at,
+            })) {
             send_protocol_error(protocol::ErrorCode::session_overloaded,
                                 static_cast<std::uint8_t>(type));
             return false;
@@ -519,7 +582,7 @@ void TcpGateway::start() {
 }
 
 void TcpGateway::schedule_outbound_drain() {
-    drain_timer_.expires_after(std::chrono::milliseconds(1));
+    drain_timer_.expires_after(kOutboundDrainInterval);
     drain_timer_.async_wait([this](const boost::system::error_code& ec) {
         if (!ec && !stopped_) {
             poll_outbound();

@@ -2,6 +2,7 @@
 
 #include <boost/asio.hpp>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -13,6 +14,7 @@
 #include "low_latency_exchange/order_book.hpp"
 #include "low_latency_exchange/event_log.hpp"
 #include "low_latency_exchange/market_data.hpp"
+#include "low_latency_exchange/observability.hpp"
 #include "low_latency_exchange/order_command.hpp"
 #include "low_latency_exchange/protocol.hpp"
 #include "low_latency_exchange/spsc_queue.hpp"
@@ -25,6 +27,8 @@ using InboundCommand = std::variant<std::monostate, NewOrder, CancelOrder, Repla
 struct InboundMessage {
     std::uint64_t session_id = 0;
     InboundCommand command = std::monostate{};
+    std::uint32_t wire_bytes = 0;
+    std::chrono::steady_clock::time_point received_at{};
 };
 
 struct OutboundMessage {
@@ -42,6 +46,19 @@ struct OutboundMessage {
 
 using InboundQueue = BoundedSPSCQueue<InboundMessage, 4096>;
 using OutboundQueue = BoundedSPSCQueue<OutboundMessage, 4096>;
+
+struct MatchingEngineMetrics {
+    std::uint64_t accepted_commands = 0;
+    std::uint64_t rejected_commands = 0;
+    std::uint64_t accepted_cancels = 0;
+    std::uint64_t rejected_cancels = 0;
+    std::uint64_t executions = 0;
+    std::uint64_t inbound_bytes = 0;
+    std::uint64_t outbound_bytes = 0;
+    std::size_t inbound_queue_high_water = 0;
+    std::size_t outbound_queue_high_water = 0;
+    LatencyHistogramSnapshot command_to_ack_latency{};
+};
 
 /**
  * @brief Deterministic matching engine service operating as a single-writer.
@@ -68,10 +85,13 @@ class MatchingEngineService final {
     [[nodiscard]] const OrderBook& order_book() const noexcept {
         return book_;
     }
+    [[nodiscard]] MatchingEngineMetrics metrics() const noexcept;
 
   private:
     // Applies bounded outbound-queue backpressure; socket I/O remains outside the engine.
     void push_outbound(OutboundMessage&& msg);
+    void record_outbound_message(const OutboundMessage& msg) noexcept;
+    void record_command_result(const InboundMessage& message, bool accepted) noexcept;
     [[nodiscard]] bool handle_new_order(std::uint64_t session_id, const NewOrder& order);
     [[nodiscard]] bool handle_cancel_order(std::uint64_t session_id, const CancelOrder& order);
     [[nodiscard]] bool handle_replace_order(std::uint64_t session_id, const ReplaceOrder& order);
@@ -82,6 +102,8 @@ class MatchingEngineService final {
     EventCaptureFeed* event_capture_feed_ = nullptr;
     OrderBook book_{};
     std::unordered_map<OrderId, std::uint64_t> order_sessions_{};
+    MatchingEngineMetrics metrics_{};
+    LatencyHistogram command_to_ack_latency_{};
 };
 
 class TcpSession;
