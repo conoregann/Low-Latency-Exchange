@@ -1,8 +1,8 @@
 # Low-Latency Exchange
 
-Low-Latency Exchange is a C++20 learning project for building a deterministic, in-memory limit-order-book exchange and market-data platform. It is designed to demonstrate correct matching, clear concurrency boundaries, resilient binary protocol handling, replayability, and measurable performance.
+Low-Latency Exchange is a C++20 learning project for building a deterministic, in-memory limit-order-book exchange and market-data platform. It demonstrates correct matching, clear concurrency boundaries, resilient binary protocol handling, replayability, and measurable performance.
 
-The project is a simulator for engineering practice, not a real trading system or investment product. The intended architecture and delivery plan are in [ACTION_PLAN.md](ACTION_PLAN.md).
+The project is a simulator for engineering practice, not a real trading system or investment product. The system design is described in [docs/architecture.md](docs/architecture.md).
 
 ## Repository layout
 
@@ -69,7 +69,7 @@ ctest --preset debug -R low_latency_exchange.market_data
 
 ## Event capture and deterministic replay
 
-The optional Phase 5 recorder writes accepted commands to a framed, checksummed
+The optional recorder writes accepted commands to a framed, checksummed
 append-only log. File I/O runs on a recorder thread behind a bounded queue, so
 the matching engine does not wait for disk. Start a gateway with an explicit
 port and log path:
@@ -95,8 +95,8 @@ ctest --preset debug -R low_latency_exchange.event_log
 
 ## Benchmarks and observability
 
-Phase 6 adds a deterministic synthetic workload generator and separate matching
-and loopback-TCP gateway benchmarks. The engine exposes fixed-memory counters
+The project includes a deterministic synthetic workload generator and separate
+matching and loopback-TCP gateway benchmarks. The engine exposes fixed-memory counters
 for command outcomes, executions, wire bytes, queue high-water marks, and
 command-to-terminal-response latency buckets.
 
