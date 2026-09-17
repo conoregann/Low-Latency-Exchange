@@ -6,8 +6,8 @@ The matching core (`low_latency_exchange_core`) is an in-memory, deterministic l
 
 ### 1. Strongly Typed Domain Primitives
 Financial quantities and identifiers are encapsulated in non-zero, strongly typed value wrappers:
-- `Price`: Integer tick representation (guaranteed $> 0$). Floating-point arithmetic is strictly avoided.
-- `Quantity`: Non-zero unit counts (guaranteed $> 0$).
+- `Price`: Integer tick representation with a value greater than zero. Floating-point arithmetic is strictly avoided.
+- `Quantity`: Non-zero unit counts.
 - `OrderId`: Unique 64-bit unsigned identifier.
 - `SequenceNumber`: Monotonically increasing 64-bit sequence identifier.
 - `Side` (`buy`, `sell`) and `OrderType` (`limit`, `market`).
@@ -18,7 +18,7 @@ The engine processes three primary validated commands:
    - Limit orders: validated to require a price; match immediately against resting contra liquidity in price-time priority; any unexecuted remainder rests on the book.
    - Market orders: validated without price; consume best available contra liquidity across levels; unexecuted remainder is cancelled (immediate-or-cancel) without posting.
 2. **`CancelOrder`**:
-   - Direct $O(1)$ cancellation of resting orders by `OrderId`.
+   - Direct O(1) cancellation of resting orders by `OrderId`.
 3. **`ReplaceOrder`**:
    - In-place quantity reduction at the same price retains original time priority in the queue.
    - Price change or quantity increase forfeits time priority (moved to the queue tail with the replacement's sequence number).
@@ -27,8 +27,8 @@ The engine processes three primary validated commands:
 ### 3. Data Structures & Lookup Indexing
 - **Price Levels**: `std::map<Price, PriceLevel, std::greater<Price>>` for bids, and `std::map<Price, PriceLevel, std::less<Price>>` for asks.
 - **Queue Representation**: Each `PriceLevel` maintains an intrusive/FIFO `std::list<RestingOrder>` and an aggregate `total_units` accumulator.
-- **Order Locator Index**: `std::unordered_map<OrderId, OrderLocation>` stores the side, price, and stable list iterator for each resting order, enabling $O(1)$ cancellation and modifications without traversing price levels.
-- **Level-2 Depth & Top-of-Book**: `top_bid()`, `top_ask()`, and `depth(max_levels)` query aggregated price levels directly in $O(K)$ time without scanning individual resting orders.
+- **Order Locator Index**: `std::unordered_map<OrderId, OrderLocation>` stores the side, price, and stable list iterator for each resting order, enabling O(1) cancellation and modifications without traversing price levels.
+- **Level-2 Depth & Top-of-Book**: `top_bid()`, `top_ask()`, and `depth(max_levels)` query aggregated price levels directly in O(K) time without scanning individual resting orders.
 
 ### 4. Financial & Structural Invariants
 The core exposes `validate_invariants()` ensuring that between operations:
@@ -75,13 +75,19 @@ Drives identical randomized order flows concurrently into both `OrderBook` and `
 - Full Level-2 aggregated depth snapshots.
 
 ### 3. Property-Based Testing & Volume Conservation (`tests/property_test.cpp`)
-Simulates heavy order book churn across tens of thousands of operations, validating double-auction conservation on every single state transition:
-$$\text{Submitted Units} = \text{Executed Units} + \text{Cancelled Units} + \text{Resting Units}$$
-Concurrently asserts strict spread non-crossing ($\text{best\_bid} < \text{best\_ask}$) and resting order count invariants.
+Simulates heavy order book churn across tens of thousands of operations, validating
+double-auction conservation on every single state transition:
+
+```text
+Submitted Units = Executed Units + Cancelled Units + Resting Units
+```
+
+It also asserts strict spread non-crossing (`best_bid < best_ask`) and resting
+order count invariants.
 
 ### 4. Hostile Input & Boundary Fuzzing (`tests/fuzz_test.cpp`)
 Validates engine robustness against:
-- Extremal numeric boundary limits (`Price(1)`, $\text{Price}(\text{INT64\_MAX})$, $\text{Quantity}(1)$, huge volume requests).
+- Extremal numeric boundary limits (`Price(1)`, `Price(INT64_MAX)`, `Quantity(1)`, huge volume requests).
 - Invalid command payload handling (missing prices, unsolicited prices, non-existent order cancellations).
 - Deep single-price queue churn (1,000 orders in a single price level, arbitrary middle-of-queue node erasures).
 - Multi-level aggressive liquidity sweeps across dozens of contiguous price levels.
