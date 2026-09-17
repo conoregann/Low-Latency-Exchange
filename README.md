@@ -93,6 +93,31 @@ The log record contract and capture-overload policy are specified in
 ctest --preset debug -R low_latency_exchange.event_log
 ```
 
+## Benchmarks and observability
+
+Phase 6 adds a deterministic synthetic workload generator and separate matching
+and loopback-TCP gateway benchmarks. The engine exposes fixed-memory counters
+for command outcomes, executions, wire bytes, queue high-water marks, and
+command-to-terminal-response latency buckets.
+
+```sh
+cmake --preset release
+cmake --build --preset release --parallel
+
+./out/build/release/low_latency_exchange_benchmark --mode core \
+  --commands 100000 --warmup 10000 --symbols 1 --levels 32 \
+  --cancel-rate 20 --cross-rate 10 --seed 6006
+
+./out/build/release/low_latency_exchange_benchmark --mode gateway \
+  --commands 1000 --symbols 1 --levels 32 \
+  --cancel-rate 20 --cross-rate 10 --seed 6006
+```
+
+The workload seed and parameters make runs repeatable. Gateway v1 does not
+carry an instrument identifier, so gateway mode supports one symbol; core mode
+can run independent books for multiple symbols. See [docs/benchmarks.md](docs/benchmarks.md)
+for methodology, measured results, and the documented timer optimisation.
+
 ## Development rules
 
 - Keep the matching core deterministic and independent of sockets, disk I/O, logging, and locks.

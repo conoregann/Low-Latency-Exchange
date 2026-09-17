@@ -43,6 +43,7 @@ requested, testable outcome; stop when it is met.
 | `src/order_book.cpp` | Single-writer matching implementation only. |
 | `include/low_latency_exchange/market_data.hpp`, `src/market_data.cpp` | Fixed-size feed events, SPSC queue producer/consumer, and subscriber recovery state. |
 | `include/low_latency_exchange/event_log.hpp`, `src/event_log.cpp` | Accepted-command capture queue, framed checked log writer, and deterministic replay. |
+| `include/low_latency_exchange/benchmark.hpp`, `src/benchmark.cpp`, `apps/benchmark/` | Deterministic workload generation, core benchmarking, and loopback gateway measurement. |
 | `src/protocol.cpp` | Bounds-checked v1 codec implementation. |
 | `src/tcp_gateway.cpp` | Boost.Asio transport, session validation, and queue handoff. |
 | `tests/` | Unit, property, differential, fuzz, and TCP integration coverage. |

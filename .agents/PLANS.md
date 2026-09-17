@@ -68,6 +68,22 @@ and the normative [protocol](../docs/protocol.md).
 - [x] Run replay and gateway critical paths under ASan/UBSan -> verify:
   `ctest --preset sanitize -R "low_latency_exchange\\.(gateway|event_log)"`
 
+## Phase 6: observability and performance complete
+
+- [x] Expose engine-owned counters for outcomes, executions, bytes, queue
+  high-water marks, and fixed-memory command-to-ack latency buckets -> verify:
+  `ctest --preset debug -R low_latency_exchange.observability`
+- [x] Build a seedable workload generator with configurable book shape, cancel
+  rate, crossing rate, and independent core symbols -> verify:
+  `ctest --preset debug -R low_latency_exchange.benchmark`
+- [x] Measure matching core separately from loopback TCP gateway latency and
+  document reproducible Release commands -> verify:
+  `rg -n "--mode core|--mode gateway|p99.9" docs/benchmarks.md`
+- [x] Record before/after evidence for the outbound-drain scheduling change ->
+  verify: `rg -n "1 ms|50 us|Evidence-backed" docs/benchmarks.md`
+- [x] Preserve correctness after the instrumentation and scheduling change ->
+  verify: `ctest --preset debug`
+
 ## Completion discipline
 
 Check off an item only after its verification command succeeds from a clean
