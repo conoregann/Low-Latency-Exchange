@@ -7,7 +7,9 @@ Boost.Asio TCP gateway exist. The gateway validates headers and payloads,
 enforces per-session sequence monotonicity, and flushes protocol errors before
 closing. Phase 3 is complete: scripted TCP coverage verifies cancel, replace,
 and overload behavior, and the local gateway has a documented executable
-workflow. Phase 4 has not started.
+workflow. Phase 4 is complete: the engine publishes bounded, recoverable
+five-level market-data updates without allowing a slow publisher to stall
+matching. Phase 5 has not started.
 
 Guardrails: [AGENTS.md](../AGENTS.md), [architecture](../docs/architecture.md),
 and the normative [protocol](../docs/protocol.md).
@@ -30,22 +32,22 @@ and the normative [protocol](../docs/protocol.md).
   point exists -> verify:
   `rg -n "gateway|TCP" README.md docs/architecture.md`
 
-## Phase 4: prepare market-data pipeline
+## Phase 4: market-data pipeline complete
 
-- [ ] Record an ADR-level ownership and backpressure decision: engine is the
+- [x] Record an ADR-level ownership and backpressure decision: engine is the
   sole producer; one publisher is the sole consumer; queue-full policy is
   measured and cannot stall matching -> verify:
   `rg -n "producer|consumer|backpressure|queue" docs/architecture.md`
-- [ ] Define fixed-size incremental best-price/depth and snapshot event types,
+- [x] Define fixed-size incremental best-price/depth and snapshot event types,
   including a monotonically increasing feed sequence -> verify:
   `cmake --build --preset debug --parallel`
-- [ ] Add an engine-to-publisher bounded SPSC queue with explicit capacity and
+- [x] Add an engine-to-publisher bounded SPSC queue with explicit capacity and
   no hot-path allocation -> verify:
-  `ctest --test-dir out/build/debug --output-on-failure -R low_latency_exchange.spsc_queue`
-- [ ] Add publisher tests proving a slow subscriber cannot stall matching and a
+  `ctest --preset debug -R low_latency_exchange.market_data`
+- [x] Add publisher tests proving a slow subscriber cannot stall matching and a
   snapshot plus sequenced deltas reconstructs book state -> verify:
-  `ctest --test-dir out/build/debug --output-on-failure -R "low_latency_exchange\.(gateway|spsc_queue)"`
-- [ ] Run property, differential, protocol, queue, and publisher-adjacent tests
+  `ctest --preset debug -R "low_latency_exchange\.(market_data|gateway|spsc_queue)"`
+- [x] Run property, differential, protocol, queue, and publisher-adjacent tests
   after integration -> verify: `ctest --preset debug`
 
 ## Completion discipline

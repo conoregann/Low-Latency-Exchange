@@ -261,6 +261,9 @@ bool MatchingEngineService::process_one() {
     } else if (std::holds_alternative<ReplaceOrder>(msg.command)) {
         handle_replace_order(msg.session_id, std::get<ReplaceOrder>(msg.command));
     }
+    if (market_data_feed_ != nullptr) {
+        market_data_feed_->publish(book_);
+    }
     return true;
 }
 
